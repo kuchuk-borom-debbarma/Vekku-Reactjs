@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, FileText, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import api from "@/lib/api";
 import CreateContentModal from "@/components/CreateContentModal";
@@ -25,19 +26,15 @@ interface PaginationMetadata {
 const LIMIT = 5;
 
 const Contents: React.FC = () => {
-  const [contents, setContents] = useState<Content[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   // Pagination State
   const [offset, setOffset] = useState(0);
   const [chunkId, setChunkId] = useState<string | undefined>(undefined);
   const [chunkStack, setChunkStack] = useState<string[]>([]); // To go back to previous chunks
-  const [metadata, setMetadata] = useState<PaginationMetadata | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Debounce search query
   useEffect(() => {
@@ -51,50 +48,26 @@ const Contents: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  useEffect(() => {
-    let isMounted = true;
+  const { data: response, isLoading, error, refetch } = useQuery({
+    queryKey: ["contents", { offset, chunkId, debouncedQuery }],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        limit: LIMIT.toString(),
+        offset: offset.toString(),
+      });
+      if (chunkId) params.append("chunkId", chunkId);
+      if (debouncedQuery) params.append("q", debouncedQuery);
 
-    const fetchContents = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const params = new URLSearchParams({
-          limit: LIMIT.toString(),
-          offset: offset.toString(),
-        });
-        if (chunkId) params.append("chunkId", chunkId);
-        if (debouncedQuery) params.append("q", debouncedQuery);
+      const res = await api.get(`/content?${params.toString()}`);
+      return res.data;
+    },
+  });
 
-        const response = await api.get(`/content?${params.toString()}`);
-        
-        if (isMounted) {
-          setContents(response.data.data || []);
-          setMetadata(response.data.metadata);
-        }
-      } catch (err: any) {
-        if (!isMounted) return;
-        console.error("Failed to fetch contents:", err);
-        if (err.response?.status === 429) {
-          setError("Rate limit exceeded. Please wait a moment before trying again.");
-        } else {
-          setError("Failed to load contents. Please try again later.");
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    fetchContents();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [offset, chunkId, refreshTrigger]);
+  const contents = response?.data || [];
+  const metadata = response?.metadata as PaginationMetadata | null;
 
   const handleRefresh = () => {
-    setRefreshTrigger((prev) => prev + 1);
+    queryClient.invalidateQueries({ queryKey: ["contents"] });
   };
 
 
@@ -168,9 +141,13 @@ const Contents: React.FC = () => {
             <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-3">
               <span className="text-red-600 font-bold">!</span>
             </div>
-            <p className="font-medium text-zinc-900">{error}</p>
+            <p className="font-medium text-zinc-900">
+              {(error as any).response?.status === 429 
+                ? "Rate limit exceeded. Please wait a moment." 
+                : "Failed to load contents. Please try again later."}
+            </p>
             <button 
-              onClick={handleRefresh}
+              onClick={() => refetch()}
               className="mt-4 text-indigo-600 hover:text-indigo-700 text-sm font-medium"
             >
               Try again

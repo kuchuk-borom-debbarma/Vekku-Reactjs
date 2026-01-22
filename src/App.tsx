@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import DashboardLayout from "./components/DashboardLayout";
 import AuthLayout from "./components/AuthLayout";
@@ -9,6 +10,17 @@ import Home from "./pages/Home";
 import Contents from "./pages/Contents";
 import Tags from "./pages/Tags";
 import "./App.css";
+
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+    },
+  },
+});
 
 // Protected Route Component
 const ProtectedRoute = () => {
@@ -23,27 +35,29 @@ const ProtectedRoute = () => {
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <Routes>
-          {/* Public Routes */}
-          <Route element={<AuthLayout />}>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/verify" element={<Verify />} />
-          </Route>
-
-          {/* Protected Routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route element={<DashboardLayout />}>
-              <Route path="/" element={<Home />} />
-              <Route path="/contents" element={<Contents />} />
-              <Route path="/tags" element={<Tags />} />
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <AuthProvider>
+          <Routes>
+            {/* Public Routes */}
+            <Route element={<AuthLayout />}>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/verify" element={<Verify />} />
             </Route>
-          </Route>
-        </Routes>
-      </AuthProvider>
-    </Router>
+
+            {/* Protected Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<DashboardLayout />}>
+                <Route path="/" element={<Home />} />
+                <Route path="/contents" element={<Contents />} />
+                <Route path="/tags" element={<Tags />} />
+              </Route>
+            </Route>
+          </Routes>
+        </AuthProvider>
+      </Router>
+    </QueryClientProvider>
   );
 }
 
