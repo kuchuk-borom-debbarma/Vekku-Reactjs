@@ -177,7 +177,7 @@ const Tags: React.FC = () => {
             </div>
          ) : (
            <div className="flex-1 divide-y divide-zinc-50">
-             {tags.map((tag) => (
+             {tags.map((tag: Tag) => (
                <div key={tag.id} className="px-6 py-4 flex items-center justify-between hover:bg-zinc-50 transition-colors group">
                  <div>
                    <h3 className="text-sm font-medium text-zinc-900">{tag.name}</h3>

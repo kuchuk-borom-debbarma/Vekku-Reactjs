@@ -172,7 +172,7 @@ const Contents: React.FC = () => {
           </div>
         ) : (
           <div className="flex-1 divide-y divide-zinc-50">
-            {contents.map((content) => (
+            {contents.map((content: Content) => (
               <div key={content.id} className="px-6 py-4 flex items-center justify-between hover:bg-zinc-50 transition-colors group">
                 <div className="flex items-center gap-4">
                   <div className="w-8 h-8 rounded bg-indigo-50 flex items-center justify-center text-indigo-600">
