@@ -29,7 +29,8 @@ const Verify: React.FC = () => {
         console.error(err);
         // Only set error if we aren't already successful (in case of race conditions, though ref handles most)
         setStatus("error");
-        setMessage(err.response?.data?.error || "Verification failed. The token may be invalid or expired.");
+        const errorMessage = err.response?.data?.error;
+        setMessage(typeof errorMessage === "string" ? errorMessage : "Verification failed. The token may be invalid or expired.");
       }
     };
 

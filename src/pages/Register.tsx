@@ -25,7 +25,8 @@ const Register: React.FC = () => {
       setName("");
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.error || "Failed to request registration");
+      const errorMessage = err.response?.data?.error;
+      setError(typeof errorMessage === "string" ? errorMessage : "Failed to request registration");
     } finally {
       setIsLoading(false);
     }

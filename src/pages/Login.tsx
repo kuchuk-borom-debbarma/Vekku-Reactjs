@@ -20,7 +20,8 @@ const Login: React.FC = () => {
       navigate("/");
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.error || "Failed to login");
+      const errorMessage = err.response?.data?.error;
+      setError(typeof errorMessage === "string" ? errorMessage : "Failed to login");
     } finally {
       setIsLoading(false);
     }
