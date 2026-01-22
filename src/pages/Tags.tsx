@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import axios from "axios";
 import { Search, Tag as TagIcon, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import api from "@/lib/api";
 import CreateTagModal from "@/components/CreateTagModal";
@@ -31,31 +32,44 @@ const Tags: React.FC = () => {
   const [chunkStack, setChunkStack] = useState<string[]>([]); // To go back to previous chunks
   const [metadata, setMetadata] = useState<PaginationMetadata | null>(null);
 
-  const fetchTags = async (currentOffset: number, currentChunkId?: string) => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams({
-        limit: LIMIT.toString(),
-        offset: currentOffset.toString(),
-      });
-      if (currentChunkId) params.append("chunkId", currentChunkId);
-
-      const response = await api.get(`/tag?${params.toString()}`);
-      setTags(response.data.data || []); 
-      setMetadata(response.data.metadata);
-    } catch (error) {
-      console.error("Failed to fetch tags:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
-    fetchTags(offset, chunkId);
-  }, [offset, chunkId]);
+    const controller = new AbortController();
+
+    const fetchTags = async () => {
+      setIsLoading(true);
+      try {
+        const params = new URLSearchParams({
+          limit: LIMIT.toString(),
+          offset: offset.toString(),
+        });
+        if (chunkId) params.append("chunkId", chunkId);
+
+        const response = await api.get(`/tag?${params.toString()}`, {
+          signal: controller.signal,
+        });
+        setTags(response.data.data || []);
+        setMetadata(response.data.metadata);
+      } catch (error) {
+        if (axios.isCancel(error)) return;
+        console.error("Failed to fetch tags:", error);
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchTags();
+
+    return () => {
+      controller.abort();
+    };
+  }, [offset, chunkId, refreshTrigger]);
 
   const handleRefresh = () => {
-    fetchTags(offset, chunkId);
+    setRefreshTrigger((prev) => prev + 1);
   };
 
   const handleDelete = async (id: string) => {
