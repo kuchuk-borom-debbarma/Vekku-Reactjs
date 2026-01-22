@@ -27,6 +27,7 @@ const LIMIT = 5;
 const TagSelector: React.FC<TagSelectorProps> = ({ selectedTagIds, onToggleTag }) => {
   const [tags, setTags] = useState<Tag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Pagination State
   const [offset, setOffset] = useState(0);
@@ -34,20 +35,42 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTagIds, onToggleTag }
   const [chunkStack, setChunkStack] = useState<string[]>([]); // To go back to previous chunks
   const [metadata, setMetadata] = useState<PaginationMetadata | null>(null);
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+      setOffset(0);
+      setChunkId(undefined);
+      setChunkStack([]);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const fetchTags = async (currentOffset: number, currentChunkId?: string) => {
     setIsLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams({
         limit: LIMIT.toString(),
         offset: currentOffset.toString(),
       });
       if (currentChunkId) params.append("chunkId", currentChunkId);
+      if (debouncedQuery) params.append("q", debouncedQuery);
 
       const response = await api.get(`/tag?${params.toString()}`);
       setTags(response.data.data || []);
       setMetadata(response.data.metadata);
-    } catch (error) {
-      console.error("Failed to fetch tags:", error);
+    } catch (err: any) {
+      console.error("Failed to fetch tags:", err);
+      if (err.response?.status === 429) {
+        setError("Rate limit exceeded.");
+      } else {
+        setError("Failed to load tags.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -93,6 +116,8 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTagIds, onToggleTag }
           <input
             type="text"
             placeholder="Search tags..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1 bg-transparent border-none outline-none text-sm text-zinc-900 placeholder-zinc-400"
           />
         </div>
@@ -102,6 +127,16 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTagIds, onToggleTag }
       <div className="border border-zinc-200 rounded-lg overflow-hidden min-h-[300px] flex flex-col">
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center p-8 text-center text-zinc-400">Loading tags...</div>
+        ) : error ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
+            <p className="text-sm text-red-600 mb-2">{error}</p>
+            <button 
+              onClick={() => fetchTags(offset, chunkId)}
+              className="text-xs text-indigo-600 hover:underline"
+            >
+              Retry
+            </button>
+          </div>
         ) : tags.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 p-4">
             <p className="text-sm">No tags found.</p>

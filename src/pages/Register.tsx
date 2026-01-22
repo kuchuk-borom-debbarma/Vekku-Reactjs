@@ -33,51 +33,59 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Create Account</h2>
+    <div className="p-8">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold text-zinc-900">Create an account</h2>
+        <p className="text-sm text-zinc-500 mt-2">Join Vekku to start managing your knowledge</p>
+      </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm">
+        <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-red-600" />
           {error}
         </div>
       )}
 
       {success && (
-        <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-md text-sm">
+        <div className="mb-6 p-4 bg-green-50 border border-green-100 text-green-700 rounded-xl text-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-green-600" />
           {success}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-zinc-900 ml-1">Full Name</label>
           <input
             type="text"
+            placeholder="John Doe"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all text-sm"
             required
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-zinc-900 ml-1">Email</label>
           <input
             type="email"
+            placeholder="name@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all text-sm"
             required
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-zinc-900 ml-1">Password</label>
           <input
             type="password"
+            placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all text-sm"
             required
             minLength={6}
           />
@@ -86,15 +94,15 @@ const Register: React.FC = () => {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full py-2 px-4 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+          className="w-full py-3 px-4 bg-black text-white text-sm font-semibold rounded-xl hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-500 disabled:opacity-50 transition-all shadow-sm active:scale-[0.98]"
         >
-          {isLoading ? "Signing up..." : "Sign Up"}
+          {isLoading ? "Creating account..." : "Create Account"}
         </button>
       </form>
 
-      <div className="mt-4 text-center text-sm text-gray-600">
+      <div className="mt-8 text-center text-sm text-zinc-500">
         Already have an account?{" "}
-        <Link to="/login" className="text-indigo-600 hover:text-indigo-800">
+        <Link to="/login" className="text-black font-semibold hover:underline decoration-zinc-300 underline-offset-4">
           Login here
         </Link>
       </div>

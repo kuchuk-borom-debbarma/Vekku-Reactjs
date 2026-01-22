@@ -71,7 +71,10 @@ api.interceptors.response.use(
         const refreshToken = localStorage.getItem("refreshToken");
         if (!refreshToken) throw new Error("No refresh token");
 
-        const { data } = await axios.post("/api/auth/refresh", { refreshToken });
+        // Use the base axios instance to avoid recursive 401s, 
+        // but ensure we hit the correct refresh endpoint.
+        const refreshUrl = `${api.defaults.baseURL}/auth/refresh`;
+        const { data } = await axios.post(refreshUrl, { refreshToken });
 
         localStorage.setItem("token", data.accessToken);
         localStorage.setItem("refreshToken", data.refreshToken);

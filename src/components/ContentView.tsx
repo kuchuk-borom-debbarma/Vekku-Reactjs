@@ -55,13 +55,17 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
   const [isAddingSuggestions, setIsAddingSuggestions] = useState(false);
 
   const fetchTagsAndSuggestions = async () => {
+    if (!content.id) return;
     setIsLoadingTags(true);
+    let isMounted = true;
     try {
       const [tagsRes, suggestionsRes] = await Promise.all([
         api.get(`/content/${content.id}/tags`),
         api.get(`/suggestions/content/${content.id}`),
       ]);
       
+      if (!isMounted) return;
+
       // Map active tags: ContentTag { id (link), tagId, name } -> TagItem { id (tagId), linkId, name }
       const currentTags = (tagsRes.data.data || []).map((t: any) => ({
         id: t.tagId,
@@ -82,19 +86,26 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
       
       // Initialize selected tags for the manager
       setSelectedTagIds(currentTags.map((t: TagItem) => t.id));
-    } catch (error) {
+    } catch (error: any) {
+      if (!isMounted) return;
       console.error("Failed to fetch tags:", error);
+      if (error.response?.status === 429) {
+        alert("Rate limit exceeded. Please wait a moment.");
+      }
     } finally {
-      setIsLoadingTags(false);
+      if (isMounted) {
+        setIsLoadingTags(false);
+      }
     }
+    return () => { isMounted = false; };
   };
 
-  useEffect(() => {
-    if (content.id) {
-        fetchTagsAndSuggestions();
-        setSelectedSuggestionIds([]); // Reset selections on new content
+  const handleOpenChange = (open: boolean) => {
+    if (open) {
+      fetchTagsAndSuggestions();
+      setSelectedSuggestionIds([]); // Reset selections on new content open
     }
-  }, [content.id]);
+  };
 
   // Update selected IDs when active tags change (e.g. after add/remove via other means)
   useEffect(() => {
@@ -196,7 +207,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
 
   return (
     <>
-      <Sheet>
+      <Sheet onOpenChange={handleOpenChange}>
         <SheetTrigger asChild>
           {trigger || (
             <button className="text-zinc-900 hover:text-indigo-600 font-medium transition-colors text-left">

@@ -28,6 +28,7 @@ const LIMIT = 5;
 const Contents: React.FC = () => {
   const [contents, setContents] = useState<Content[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Pagination State
   const [offset, setOffset] = useState(0);
@@ -35,30 +36,52 @@ const Contents: React.FC = () => {
   const [chunkStack, setChunkStack] = useState<string[]>([]); // To go back to previous chunks
   const [metadata, setMetadata] = useState<PaginationMetadata | null>(null);
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  // Debounce search query
   useEffect(() => {
-    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+      setOffset(0); // Reset offset on new search
+      setChunkId(undefined);
+      setChunkStack([]);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    let isMounted = true;
 
     const fetchContents = async () => {
       setIsLoading(true);
+      setError(null);
       try {
         const params = new URLSearchParams({
           limit: LIMIT.toString(),
           offset: offset.toString(),
         });
         if (chunkId) params.append("chunkId", chunkId);
+        if (debouncedQuery) params.append("q", debouncedQuery);
 
-        const response = await api.get(`/content?${params.toString()}`, {
-          signal: controller.signal,
-        });
-        setContents(response.data.data || []);
-        setMetadata(response.data.metadata);
-      } catch (error) {
-        if (axios.isCancel(error)) return;
-        console.error("Failed to fetch contents:", error);
+        const response = await api.get(`/content?${params.toString()}`);
+        
+        if (isMounted) {
+          setContents(response.data.data || []);
+          setMetadata(response.data.metadata);
+        }
+      } catch (err: any) {
+        if (!isMounted) return;
+        console.error("Failed to fetch contents:", err);
+        if (err.response?.status === 429) {
+          setError("Rate limit exceeded. Please wait a moment before trying again.");
+        } else {
+          setError("Failed to load contents. Please try again later.");
+        }
       } finally {
-        if (!controller.signal.aborted) {
+        if (isMounted) {
           setIsLoading(false);
         }
       }
@@ -67,7 +90,7 @@ const Contents: React.FC = () => {
     fetchContents();
 
     return () => {
-      controller.abort();
+      isMounted = false;
     };
   }, [offset, chunkId, refreshTrigger]);
 
@@ -128,6 +151,8 @@ const Contents: React.FC = () => {
           <input 
             type="text" 
             placeholder="Search contents..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1 bg-transparent border-none outline-none text-sm text-zinc-900 placeholder-zinc-400"
           />
         </div>
@@ -138,6 +163,19 @@ const Contents: React.FC = () => {
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center p-8 text-zinc-500">
             Loading contents...
+          </div>
+        ) : error ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-3">
+              <span className="text-red-600 font-bold">!</span>
+            </div>
+            <p className="font-medium text-zinc-900">{error}</p>
+            <button 
+              onClick={handleRefresh}
+              className="mt-4 text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+            >
+              Try again
+            </button>
           </div>
         ) : contents.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-zinc-500">
