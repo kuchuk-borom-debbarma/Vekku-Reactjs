@@ -287,6 +287,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
               <h3 className="font-semibold text-zinc-900 flex items-center gap-2">
                 <Sparkles size={18} className="text-indigo-500" />
                 Suggested Tags
+                <span className="text-[10px] font-normal text-zinc-400 ml-1 hidden sm:inline-block">(Lower score is better)</span>
               </h3>
               <div className="flex items-center gap-2">
                 {selectedSuggestionIds.length > 0 && (
@@ -337,6 +338,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                       <button
                         key={tag.id}
                         onClick={() => toggleSuggestion(tag.id)}
+                        title={tag.score ? `Distance Score: ${tag.score}` : undefined}
                         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm transition-all ${
                           isSelected 
                             ? "bg-indigo-100 text-indigo-800 border-indigo-300 ring-1 ring-indigo-300" 
@@ -345,6 +347,11 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                       >
                         {isSelected && <Check size={12} className="text-indigo-600" />}
                         {tag.name}
+                        {tag.score && (
+                           <span className={`text-[10px] font-mono ml-1 opacity-70 ${isSelected ? "text-indigo-600" : "text-indigo-400"}`}>
+                             {parseFloat(tag.score).toFixed(4)}
+                           </span>
+                        )}
                       </button>
                     );
                   })
