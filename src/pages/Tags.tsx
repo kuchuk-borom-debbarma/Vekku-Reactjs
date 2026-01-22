@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { Search, Tag as TagIcon, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import api from "@/lib/api";
 import CreateTagModal from "@/components/CreateTagModal";
