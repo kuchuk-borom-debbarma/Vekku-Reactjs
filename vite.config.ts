@@ -20,5 +20,13 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    preview: {
+      proxy: {
+        "/api": {
+          target: env.API_URL || "http://localhost:3000",
+          changeOrigin: true,
+        },
+      },
+    },
   }
 })
