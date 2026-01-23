@@ -353,7 +353,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
             <div className="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100 min-h-[100px]">
               {(displayedTagSuggestions.length > 0 || displayedKeywordSuggestions.length > 0) && (
                 <p className="text-[10px] text-indigo-400 font-medium italic border-b border-indigo-100 pb-2 mb-3">
-                  Note: Lower distance scores indicate a more accurate semantic match.
+                  Note: A more filled bar indicates a higher semantic match accuracy.
                 </p>
               )}
               <div className="space-y-4">
@@ -367,9 +367,12 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                           <button key={tag.id} onClick={() => toggleSuggestion(tag.id!)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all ${isSelected ? "bg-indigo-600 text-white border-indigo-700" : "bg-white text-indigo-700 border-indigo-200 hover:shadow-md hover:-translate-y-0.5"}`}>
                             {isSelected && <Check size={12} className="text-indigo-600" />}
                             {tag.name}
-                            <span className={`text-[9px] px-1 rounded-sm ml-1 ${isSelected ? "bg-indigo-500/50 text-white" : "bg-zinc-100 text-zinc-400"}`}>
-                              {tag.score}
-                            </span>
+                            <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5" title={`Match Accuracy Distance: ${tag.score}`}>
+                              <div 
+                                className={`h-full transition-all ${isSelected ? "bg-white" : "bg-indigo-500"}`} 
+                                style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(tag.score)) * 100))}%` }} 
+                              />
+                            </div>
                           </button>
                         );
                       })}
@@ -387,9 +390,12 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                           <button key={kw.name} onClick={() => handleKeywordClick(kw.name)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all ${isSelected ? "bg-purple-100 text-purple-800 border-purple-300 ring-1 ring-purple-300" : "bg-white text-purple-700 border-indigo-200 hover:shadow-md hover:border-purple-300 hover:bg-purple-50"}`}>
                             {isSelected ? <Check size={12} className="text-purple-600" /> : <Plus size={12} />}
                             <span>{kw.name}</span>
-                            <span className={`text-[9px] px-1 rounded-sm ml-1 ${isSelected ? "bg-purple-500/50 text-white" : "bg-zinc-100 text-zinc-400"}`}>
-                              {kw.score}
-                            </span>
+                            <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5" title={`Match Accuracy Distance: ${kw.score}`}>
+                              <div 
+                                className={`h-full transition-all ${isSelected ? "bg-white" : "bg-purple-500"}`} 
+                                style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(kw.score)) * 100))}%` }} 
+                              />
+                            </div>
                           </button>
                         );
                       })}

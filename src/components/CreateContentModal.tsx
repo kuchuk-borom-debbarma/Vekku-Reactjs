@@ -298,7 +298,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
              <div className="bg-zinc-50/50 rounded-xl p-4 border border-zinc-100 space-y-4 min-h-[100px]">
                 {(suggestedTags.length > 0 || extractedKeywords.length > 0) && (
                   <p className="text-[10px] text-zinc-400 font-medium italic border-b border-zinc-100 pb-2 mb-2">
-                    Note: Lower distance scores indicate a more accurate semantic match.
+                    Note: A more filled bar indicates a higher semantic match accuracy.
                   </p>
                 )}
 
@@ -321,9 +321,12 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                           >
                             {isSelected ? <Check size={12} /> : <Plus size={12} />}
                             {tag.name}
-                            <span className={`text-[9px] px-1 rounded-sm ml-1 ${isSelected ? "bg-indigo-500/50 text-white" : "bg-zinc-100 text-zinc-400"}`}>
-                              {tag.score}
-                            </span>
+                            <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5" title={`Match Accuracy Distance: ${tag.score}`}>
+                              <div 
+                                className={`h-full transition-all ${isSelected ? "bg-white" : "bg-indigo-500"}`} 
+                                style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(tag.score)) * 100))}%` }} 
+                              />
+                            </div>
                           </button>
                         );
                       })}
@@ -357,9 +360,12 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                             >
                               {isSelected ? <Check size={12} /> : <Plus size={12} />}
                               <span>{kw.keyword}</span>
-                              <span className={`text-[9px] px-1 rounded-sm ml-1 ${isSelected ? "bg-purple-500/50 text-white" : "bg-zinc-100 text-zinc-400"}`}>
-                                {kw.score}
-                              </span>
+                              <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5" title={`Match Accuracy Distance: ${kw.score}`}>
+                                <div 
+                                  className={`h-full transition-all ${isSelected ? "bg-white" : "bg-purple-500"}`} 
+                                  style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(kw.score)) * 100))}%` }} 
+                                />
+                              </div>
                             </button>
                           );
                         })}
