@@ -69,9 +69,10 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
     let isMounted = true;
     try {
       // Use the generation endpoint instead of GET to ensure missing suggestions are created
+      // Send content.body as 'text' to enable immediate hash-based cache hits
       const [tagsRes, suggestionsRes] = await Promise.all([
         api.get(`/content/${content.id}/tags`),
-        api.post(`/suggestions/generate`, { contentId: content.id, mode }),
+        api.post(`/suggestions/generate`, { contentId: content.id, text: content.body, mode }),
       ]);
       
       if (!isMounted) return;
@@ -208,7 +209,11 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
   const handleSuggestTags = async () => {
     setIsRegeneratingTags(true);
     try {
-      const res = await api.post("/suggestions/generate", { contentId: content.id, mode: "tags" });
+      const res = await api.post("/suggestions/generate", { 
+        contentId: content.id, 
+        text: content.body, 
+        mode: "tags" 
+      });
       const { existing = [] } = res.data || {};
       setTagSuggestions(existing.map((s: any) => ({ ...s, id: s.tagId, type: "EXISTING" })));
     } catch (error: any) {
@@ -224,7 +229,11 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
   const handleDiscoverPotential = async () => {
     setIsRegeneratingKeywords(true);
     try {
-      const res = await api.post("/suggestions/generate", { contentId: content.id, mode: "keywords" });
+      const res = await api.post("/suggestions/generate", { 
+        contentId: content.id, 
+        text: content.body, 
+        mode: "keywords" 
+      });
       const { potential = [] } = res.data || {};
       setKeywordSuggestions(potential.map((p: any) => ({ ...p, name: p.keyword, type: "KEYWORD" })));
     } catch (error: any) {
