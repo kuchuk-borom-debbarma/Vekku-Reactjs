@@ -135,23 +135,23 @@ const Tags: React.FC = () => {
       </div>
 
       {/* Filter Bar */}
-      <div className="flex items-center gap-4 bg-white p-2 rounded-lg border border-zinc-200 shadow-sm">
-        <div className="flex-1 flex items-center gap-2 px-2">
-          <Search size={18} className="text-zinc-400" />
+      <div className="flex items-center gap-4 glass p-3 rounded-2xl shadow-lg border border-white/30">
+        <div className="flex-1 flex items-center gap-3 px-3">
+          <Search size={20} className="text-zinc-500" />
           <input 
             type="text" 
             placeholder="Search tags..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 bg-transparent border-none outline-none text-sm text-zinc-900 placeholder-zinc-400"
+            className="flex-1 bg-transparent border-none outline-none text-sm font-bold text-zinc-900 placeholder-zinc-400"
           />
         </div>
       </div>
 
       {/* Tags Grid Container */}
-      <div className="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden min-h-[400px] flex flex-col">
+      <div className="glass rounded-[2rem] border border-white/30 shadow-2xl overflow-hidden min-h-[400px] flex flex-col mb-12">
          {isLoading ? (
-            <div className="flex-1 flex items-center justify-center p-8 text-center text-zinc-400">Loading tags...</div>
+            <div className="flex-1 flex items-center justify-center p-12 text-center text-zinc-600 font-medium">Loading tags...</div>
          ) : error ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
               <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-3">

@@ -64,21 +64,21 @@ const DashboardLayout: React.FC = () => {
   );
 
   return (
-    <div className="flex min-h-screen bg-zinc-50">
+    <div className="flex min-h-screen">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-64 bg-white border-r border-zinc-200 flex-col fixed inset-y-0 z-20">
+      <aside className="hidden lg:flex w-64 glass border-r border-white/20 flex-col fixed inset-y-0 z-20 m-4 rounded-3xl overflow-hidden shadow-2xl">
         <SidebarContent />
       </aside>
 
       {/* Mobile Top Bar */}
-      <header className="lg:hidden h-16 bg-white border-b border-zinc-200 fixed top-0 inset-x-0 z-30 flex items-center px-4 gap-4">
+      <header className="lg:hidden h-16 glass border-b border-white/20 fixed top-0 inset-x-0 z-30 flex items-center px-4 gap-4 m-2 rounded-2xl shadow-lg">
         <Sheet>
           <SheetTrigger asChild>
-            <button className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg">
+            <button className="p-2 text-zinc-700 hover:bg-white/20 rounded-lg transition-colors">
               <Menu size={24} />
             </button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64">
+          <SheetContent side="left" className="p-0 w-64 glass border-r border-white/20">
             <div className="flex flex-col h-full">
                <SidebarContent />
             </div>
@@ -86,7 +86,7 @@ const DashboardLayout: React.FC = () => {
         </Sheet>
 
         <Link to="/" className="text-xl font-bold text-zinc-900 tracking-tight flex items-center gap-2">
-          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white">
+          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white shadow-lg">
             <span className="font-bold text-sm">V</span>
           </div>
           Vekku
@@ -94,8 +94,8 @@ const DashboardLayout: React.FC = () => {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 lg:ml-64 p-4 md:p-8 pt-20 lg:pt-8 overflow-y-auto">
-        <div className="max-w-6xl mx-auto animate-in fade-in duration-500">
+      <main className="flex-1 lg:ml-72 p-4 md:p-8 pt-24 lg:pt-8 min-h-screen">
+        <div className="max-w-6xl mx-auto animate-in fade-in zoom-in duration-700">
           <Outlet />
         </div>
       </main>

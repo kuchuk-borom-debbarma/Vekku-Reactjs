@@ -146,22 +146,22 @@ const Contents: React.FC = () => {
       </div>
 
       {/* Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-white p-2 rounded-lg border border-zinc-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 glass p-3 rounded-2xl shadow-lg border border-white/30">
         <button 
           onClick={openFilterDialog}
-          className={`flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            isFiltering ? "bg-indigo-50 text-indigo-700 border border-indigo-100" : "bg-zinc-50 text-zinc-700 hover:bg-zinc-100 border border-zinc-100"
+          className={`flex items-center justify-center sm:justify-start gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            isFiltering ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200" : "bg-white/40 text-zinc-700 hover:bg-white/60"
           }`}
         >
           <Filter size={16} />
           {isFiltering ? `Filtered by ${activeFilterTagIds.length} tags` : "Filter by Tags"}
         </button>
 
-        <div className="flex items-center justify-between sm:justify-start gap-3">
+        <div className="flex items-center justify-between sm:justify-start gap-4">
           {isFiltering && (
             <button 
               onClick={clearFilter}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs text-zinc-500 hover:text-red-600 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50/50 rounded-xl transition-colors"
             >
               <X size={14} />
               Clear Filter
@@ -169,18 +169,19 @@ const Contents: React.FC = () => {
           )}
 
           {isFiltering && (
-            <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest sm:ml-auto animate-pulse">
-              Tag Filter Active
+            <span className="text-[10px] text-indigo-600 font-black uppercase tracking-[0.2em] sm:ml-auto animate-pulse flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+              Filter Active
             </span>
           )}
         </div>
       </div>
 
       {/* Content List Container */}
-      <div className="bg-white rounded-xl border border-zinc-200 shadow-sm min-h-[400px] overflow-hidden flex flex-col">
+      <div className="glass rounded-[2rem] border border-white/30 shadow-2xl min-h-[400px] overflow-hidden flex flex-col mb-12">
         {isLoading ? (
-          <div className="flex-1 flex items-center justify-center p-8 text-zinc-500">
-            Loading contents...
+          <div className="flex-1 flex items-center justify-center p-12 text-zinc-600 font-medium">
+            Fetching content...
           </div>
         ) : error ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
