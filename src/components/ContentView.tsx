@@ -74,11 +74,11 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
       }));
       setActiveTags(currentTags);
       
-      // Split suggestions
-      const allSuggestions: SuggestionItem[] = suggestionsRes.data || [];
+      // Handle structured suggestions response: { existing: [], potential: [] }
+      const { existing = [], potential = [] } = suggestionsRes.data || {};
       
-      setTagSuggestions(allSuggestions.filter(s => s.type === "EXISTING"));
-      setKeywordSuggestions(allSuggestions.filter(s => s.type === "KEYWORD"));
+      setTagSuggestions(existing.map((s: any) => ({ ...s, id: s.tagId, type: "EXISTING" })));
+      setKeywordSuggestions(potential.map((p: any) => ({ ...p, name: p.keyword, type: "KEYWORD" })));
       
       // Initialize selected tags for the manager
       setSelectedTagIds(currentTags.map((t: TagItem) => t.id));
