@@ -55,13 +55,13 @@ const Contents: React.FC = () => {
         limit: LIMIT.toString(),
         offset: offset.toString(),
       });
+      if (chunkId) params.append("chunkId", chunkId);
 
       if (isFiltering) {
         params.append("tagIds", activeFilterTagIds.join(","));
         const res = await api.get(`/content/by-tags?${params.toString()}`);
         return res.data;
       } else {
-        if (chunkId) params.append("chunkId", chunkId);
         const res = await api.get(`/content?${params.toString()}`);
         return res.data;
       }
@@ -90,7 +90,7 @@ const Contents: React.FC = () => {
     if (!metadata) return;
     if (offset + LIMIT < metadata.chunkTotalItems) {
       setOffset(offset + LIMIT);
-    } else if (!isFiltering && metadata.nextChunkId) {
+    } else if (metadata.nextChunkId) {
       setChunkStack([...chunkStack, chunkId || ""]); 
       setChunkId(metadata.nextChunkId);
       setOffset(0);
@@ -100,7 +100,7 @@ const Contents: React.FC = () => {
   const handlePrev = () => {
     if (offset - LIMIT >= 0) {
       setOffset(offset - LIMIT);
-    } else if (!isFiltering && chunkStack.length > 0) {
+    } else if (chunkStack.length > 0) {
       const prevStack = [...chunkStack];
       const prevChunk = prevStack.pop();
       setChunkStack(prevStack);
@@ -109,8 +109,8 @@ const Contents: React.FC = () => {
     }
   };
 
-  const canGoNext = metadata ? (offset + LIMIT < metadata.chunkTotalItems || (!isFiltering && !!metadata.nextChunkId)) : false;
-  const canGoPrev = offset > 0 || (!isFiltering && chunkStack.length > 0);
+  const canGoNext = metadata ? (offset + LIMIT < metadata.chunkTotalItems || !!metadata.nextChunkId) : false;
+  const canGoPrev = offset > 0 || chunkStack.length > 0;
 
   const openFilterDialog = () => {
     setPendingTagIds([...activeFilterTagIds]);
