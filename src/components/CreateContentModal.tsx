@@ -38,6 +38,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [suggestionError, setSuggestionError] = useState("");
 
   const resetState = () => {
     setTitle("");
@@ -50,6 +51,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     setSuggestedTags([]);
     setExtractedKeywords([]);
     setError("");
+    setSuggestionError("");
   };
 
   const handleNextStep = (e: React.FormEvent) => {
@@ -68,6 +70,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
   const handleSuggestTags = async () => {
     setIsExtractingTags(true);
+    setSuggestionError("");
     try {
       const res = await api.post("/suggestions/generate", { text: content, mode: "tags" });
       setSuggestedTags(res.data.existing || []);
@@ -75,7 +78,9 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     } catch (err: any) {
       console.error("Failed to suggest tags:", err);
       if (err.response?.status === 429) {
-        alert("AI rate limit exceeded for tags. Please wait a minute.");
+        setSuggestionError("AI rate limit exceeded for tags. Please wait a minute.");
+      } else {
+        setSuggestionError("Failed to fetch tag suggestions.");
       }
     }
     finally {
@@ -85,6 +90,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
   const handleExtractKeywords = async () => {
     setIsExtractingKeywords(true);
+    setSuggestionError("");
     try {
       const res = await api.post("/suggestions/generate", { text: content, mode: "keywords" });
       setExtractedKeywords(res.data.potential || []);
@@ -92,7 +98,9 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     } catch (err: any) {
       console.error("Failed to suggest keywords:", err);
       if (err.response?.status === 429) {
-        alert("AI rate limit exceeded for keywords. Please wait a minute.");
+        setSuggestionError("AI rate limit exceeded for keywords. Please wait a minute.");
+      } else {
+        setSuggestionError("Failed to discover new keywords.");
       }
     }
     finally {
@@ -313,6 +321,11 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
              {/* Combined Suggestion Area */}
              <div className="bg-zinc-50/50 rounded-xl p-4 border border-zinc-100 space-y-4 min-h-[100px]">
+                {suggestionError && (
+                  <div className="mb-2 p-2 bg-red-50 text-red-600 text-xs rounded border border-red-100">
+                    {suggestionError}
+                  </div>
+                )}
                 {(suggestedTags.length > 0 || extractedKeywords.length > 0) && (
                   <p className="text-[10px] text-zinc-400 font-medium italic border-b border-zinc-100 pb-2 mb-2">
                     Note: A more filled bar indicates a higher semantic match accuracy.

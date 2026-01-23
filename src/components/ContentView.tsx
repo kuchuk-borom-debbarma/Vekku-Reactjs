@@ -222,6 +222,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
 
   const handleSuggestTags = async () => {
     setIsRegeneratingTags(true);
+    setSuggestionError(null);
     try {
       const res = await api.post("/suggestions/generate", { 
         contentId: content.id, 
@@ -234,7 +235,9 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
     } catch (error: any) {
       console.error("Failed to generate tags:", error);
       if (error.response?.status === 429) {
-        alert("AI rate limit exceeded for tags. Please wait a minute.");
+        setSuggestionError("AI rate limit exceeded for tags. Please wait a minute.");
+      } else {
+        setSuggestionError("Failed to suggest tags.");
       }
     } finally {
       setIsRegeneratingTags(false);
@@ -243,6 +246,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
 
   const handleDiscoverPotential = async () => {
     setIsRegeneratingKeywords(true);
+    setSuggestionError(null);
     try {
       const res = await api.post("/suggestions/generate", { 
         contentId: content.id, 
@@ -255,7 +259,9 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
     } catch (error: any) {
       console.error("Failed to discover keywords:", error);
       if (error.response?.status === 429) {
-        alert("AI rate limit exceeded for potential tags. Please wait a minute.");
+        setSuggestionError("AI rate limit exceeded for potential tags. Please wait a minute.");
+      } else {
+        setSuggestionError("Failed to discover new keywords.");
       }
     } finally {
       setIsRegeneratingKeywords(false);
@@ -367,6 +373,11 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
             </div>
             
             <div className="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100 min-h-[100px]">
+              {suggestionError && (
+                <div className="mb-3 p-2 bg-red-50 text-red-600 text-xs rounded border border-red-100 flex items-center gap-2">
+                  <span className="font-bold">Error:</span> {suggestionError}
+                </div>
+              )}
               {(displayedTagSuggestions.length > 0 || displayedKeywordSuggestions.length > 0) && (
                 <p className="text-[10px] text-indigo-400 font-medium italic border-b border-indigo-100 pb-2 mb-3">
                   Note: A more filled bar indicates a higher semantic match accuracy.
