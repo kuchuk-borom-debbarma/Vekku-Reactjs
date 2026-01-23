@@ -3,10 +3,12 @@ import { useAuth } from "@/context/AuthContext";
 import { FileText, Tag, Plus, ArrowUpRight, Github, Mail, Sparkles, BrainCircuit } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "@/lib/api";
+import ContentView from "@/components/ContentView";
 
 interface Content {
   id: string;
   title: string;
+  body: string;
   contentType: string;
   createdAt: string;
   updatedAt: string;
@@ -169,15 +171,20 @@ const Home: React.FC = () => {
           ) : (
             <div className="divide-y divide-white/10">
               {contents.map((content) => (
-                <div key={content.id} className="px-8 py-6 flex items-center justify-between hover:bg-white/50 transition-all duration-300 group cursor-pointer">
+                <div key={content.id} className="px-8 py-6 flex items-center justify-between hover:bg-white/50 transition-all duration-300 group">
                   <div className="flex items-center gap-5">
                     <div className="w-12 h-12 rounded-2xl bg-white/60 flex items-center justify-center text-indigo-700 border border-white/50 shadow-sm">
                       <FileText size={20} />
                     </div>
                     <div>
-                      <p className="text-base font-bold text-zinc-900 group-hover:text-indigo-800 transition-colors">
-                        {content.title || "Untitled Content"}
-                      </p>
+                      <ContentView 
+                        content={content}
+                        trigger={
+                          <p className="text-base font-bold text-zinc-900 group-hover:text-indigo-800 transition-colors cursor-pointer hover:underline">
+                            {content.title || "Untitled Content"}
+                          </p>
+                        }
+                      />
                       <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1 opacity-70">
                         {new Date(content.updatedAt || content.createdAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}
                       </p>
