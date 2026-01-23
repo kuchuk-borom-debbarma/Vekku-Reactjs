@@ -25,27 +25,17 @@ const Home: React.FC = () => {
     const fetchData = async () => {
       try {
         // Parallel fetching
-        const [contentRes, tagRes] = await Promise.all([
+        const [contentRes, statsRes] = await Promise.all([
           api.get("/content?limit=5"), // Get recent 5
-          api.get("/tag?limit=1"),     // Get 1 just to see total count (if API supports total)
+          api.get("/stats"),           // Get total counts
         ]);
         
-        // Note: Assuming API response structure. 
-        // If API returns { data: [], total: number }, use that.
-        // Current API seems to return { items: [], nextChunkId: ... } or similar array structure based on previous context.
-        // Let's assume standard response based on common patterns or just array length for now if pagination isn't full.
-        // Actually, looking at the code, it returns the result object from service.
-        // Usually pagination returns { items: [...], total: ... } or similar.
-        // If not, we might only have count of fetched items.
-        // For accurate counts, we'd need a stats endpoint or a total field.
-        // For now, I'll use the length of what I got or a total field if available.
-        
         const contentData = contentRes.data;
-        const tagData = tagRes.data;
+        const statsData = statsRes.data;
 
         setContents(contentData.data || []);
-        setContentCount(contentData.metadata?.chunkTotalItems || contentData.data?.length || 0);
-        setTagCount(tagData.metadata?.chunkTotalItems || tagData.data?.length || 0);
+        setContentCount(statsData.totalContents || 0);
+        setTagCount(statsData.totalTags || 0);
         
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
