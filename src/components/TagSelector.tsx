@@ -78,7 +78,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTagIds, onToggleTag }
 
   useEffect(() => {
     fetchTags(offset, chunkId);
-  }, [offset, chunkId]);
+  }, [offset, chunkId, debouncedQuery]);
 
   const handleNext = () => {
     if (!metadata) return;
