@@ -325,7 +325,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-zinc-900 flex items-center gap-2">
                 <Sparkles size={18} className="text-indigo-500" />
-                Smart Suggestions
+                Tag Recommendations
               </h3>
               <div className="flex items-center gap-2">
                 {(selectedSuggestionIds.length > 0 || selectedKeywordNames.length > 0) && (
@@ -340,11 +340,11 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                 <div className="flex gap-1">
                   <button onClick={handleSuggestTags} disabled={isRegeneratingTags || isLoadingTags} className="text-xs flex items-center gap-1.5 text-indigo-600 hover:bg-indigo-50 px-2 py-1.5 rounded-md transition-colors disabled:opacity-50" title="Suggest Existing Tags">
                     <RotateCw size={12} className={isRegeneratingTags ? "animate-spin" : ""} />
-                    Suggest Tags
+                    Find Existing
                   </button>
                   <button onClick={handleDiscoverPotential} disabled={isRegeneratingKeywords || isLoadingTags} className="text-xs flex items-center gap-1.5 text-purple-600 hover:bg-purple-50 px-2 py-1.5 rounded-md transition-colors disabled:opacity-50" title="Extract New Keywords">
                     <Sparkles size={12} className={isRegeneratingKeywords ? "animate-spin" : ""} />
-                    Potential Tags
+                    Discover New
                   </button>
                 </div>
               </div>
@@ -359,7 +359,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
               <div className="space-y-4">
                 {displayedTagSuggestions.length > 0 && (
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-indigo-400 mb-2 tracking-wider">Matched Tags</p>
+                    <p className="text-[10px] uppercase font-bold text-indigo-400 mb-2 tracking-wider">Suggested Existing Tags</p>
                     <div className="flex flex-wrap gap-2">
                       {displayedTagSuggestions.map((tag) => {
                         const isSelected = selectedSuggestionIds.includes(tag.id!);
@@ -382,7 +382,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
 
                 {displayedKeywordSuggestions.length > 0 && (
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-purple-400 mb-2 tracking-wider">Potential Tags</p>
+                    <p className="text-[10px] uppercase font-bold text-purple-400 mb-2 tracking-wider">New Tag Suggestions</p>
                     <div className="flex flex-wrap gap-2">
                       {displayedKeywordSuggestions.map((kw) => {
                         const isSelected = selectedKeywordNames.includes(kw.name);

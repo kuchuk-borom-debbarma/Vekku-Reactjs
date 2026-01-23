@@ -272,7 +272,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
           <div className="space-y-4 py-4">
              <div className="flex items-center justify-between mb-2 gap-2">
                <div className="text-sm text-zinc-500 font-medium">
-                 Smart Suggestions
+                 Tag Recommendations
                </div>
                <div className="flex gap-2">
                  <button 
@@ -281,7 +281,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                    className="text-xs flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 bg-indigo-50 rounded-full hover:bg-indigo-100 transition-colors disabled:opacity-50"
                  >
                    <Sparkles size={12} className={isExtractingTags ? "animate-spin" : ""} />
-                   Suggest Tags
+                   Find Existing
                  </button>
                  <button 
                    onClick={handleExtractKeywords}
@@ -289,7 +289,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                    className="text-xs flex items-center gap-1.5 text-purple-600 hover:text-purple-700 font-medium px-2 py-1 bg-purple-50 rounded-full hover:bg-purple-100 transition-colors disabled:opacity-50"
                  >
                    <Sparkles size={12} className={isExtractingKeywords ? "animate-spin" : ""} />
-                   Potential Tags
+                   Discover New
                  </button>
                </div>
              </div>
@@ -305,7 +305,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                 {/* Matched Tags */}
                 {suggestedTags.length > 0 && (
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-indigo-400 mb-2 tracking-wider">Matches from your tags:</p>
+                    <p className="text-[10px] uppercase font-bold text-indigo-400 mb-2 tracking-wider">Suggested Existing Tags:</p>
                     <div className="flex flex-wrap gap-2">
                       {suggestedTags.map((tag) => {
                         const isSelected = selectedTagIds.includes(tag.tagId);
@@ -337,7 +337,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                 {/* Potential Keywords */}
                 {extractedKeywords.length > 0 && (
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-purple-400 mb-2 tracking-wider">New potential keywords:</p>
+                    <p className="text-[10px] uppercase font-bold text-purple-400 mb-2 tracking-wider">New Tag Suggestions:</p>
                     <div className="flex flex-wrap gap-2">
                       {extractedKeywords
                         .filter(kw => {
