@@ -7,11 +7,11 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, ArrowRight, Check, Sparkles } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { Plus, Check, ArrowRight, ArrowLeft, Sparkles } from "lucide-react";
 import api from "@/lib/api";
 import TagSelector from "@/components/TagSelector";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface CreateContentModalProps {
   onContentCreated: () => void;
@@ -20,23 +20,22 @@ interface CreateContentModalProps {
 
 const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreated, trigger }) => {
   const [open, setOpen] = useState(false);
-  
-  // Form State
+  const [step, setStep] = useState<"content" | "tags">("content");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [contentType, setContentType] = useState("PLAIN_TEXT");
   const [view, setView] = useState<"write" | "preview">("write");
-  
-  // Wizard State
-  const [step, setStep] = useState<"content" | "tags">("content");
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  
+
   // Extraction State
   const [isExtractingTags, setIsExtractingTags] = useState(false);
   const [isExtractingKeywords, setIsExtractingKeywords] = useState(false);
   const [suggestedTags, setSuggestedTags] = useState<any[]>([]);
   const [extractedKeywords, setExtractedKeywords] = useState<string[]>([]);
   
+  // Selection State (Local until save)
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -47,6 +46,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     setView("write");
     setStep("content");
     setSelectedTagIds([]);
+    setSelectedKeywords([]);
     setSuggestedTags([]);
     setExtractedKeywords([]);
     setError("");
@@ -61,14 +61,13 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     setError("");
     setStep("tags");
     
-    // Automatically trigger suggestions to save user a step
+    // Automatically trigger suggestions
     handleSuggestTags();
     handleExtractKeywords();
   };
 
   const handleSuggestTags = async () => {
     setIsExtractingTags(true);
-    setSuggestedTags([]);
     try {
       const res = await api.post("/suggestions/generate", { text: content, mode: "tags" });
       setSuggestedTags(res.data.existing || []);
@@ -84,7 +83,6 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
   const handleExtractKeywords = async () => {
     setIsExtractingKeywords(true);
-    setExtractedKeywords([]);
     try {
       const res = await api.post("/suggestions/generate", { text: content, mode: "keywords" });
       setExtractedKeywords((res.data.potential || []).map((p: any) => p.keyword));
@@ -98,61 +96,55 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     }
   };
 
-  const handleKeywordClick = async (keyword: string) => {
-    try {
-      // Create or get existing tag (Batch format)
-      const res = await api.post("/tag", { tags: [{ name: keyword, semantic: keyword }] });
-      const tag = res.data[0];
-      
-      // Add to selection if not already selected
-      if (!selectedTagIds.includes(tag.id)) {
-        setSelectedTagIds(prev => [...prev, tag.id]);
-      }
-      
-      // Remove from suggestions list to indicate usage
-      setExtractedKeywords(prev => prev.filter(k => k !== keyword));
-    } catch (err) {
-      console.error("Failed to add keyword tag:", err);
-    }
+  const handleKeywordClick = (keyword: string) => {
+    setSelectedKeywords(prev => 
+      prev.includes(keyword) ? prev.filter(k => k !== keyword) : [...prev, keyword]
+    );
   };
 
   const handleTagClick = (tagId: string) => {
     setSelectedTagIds(prev => 
       prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
     );
-    setSuggestedTags(prev => prev.filter(t => t.tagId !== tagId));
   };
 
-  const handleCreateContent = async () => {
+  const toggleTag = (tagId: string) => {
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId],
+    );
+  };
+
+  const handleSubmit = async () => {
     setIsLoading(true);
     setError("");
-
     try {
-      await api.post("/content", { 
-          title, 
-          content, 
-          contentType,
-          tagIds: selectedTagIds 
+      let finalTagIds = [...selectedTagIds];
+
+      // 1. If there are selected keywords, create them as tags first
+      if (selectedKeywords.length > 0) {
+        const createTagsRes = await api.post("/tag", { 
+          tags: selectedKeywords.map(kw => ({ name: kw, semantic: kw })) 
+        });
+        const newTagIds = (createTagsRes.data || []).map((t: any) => t.id);
+        finalTagIds = [...finalTagIds, ...newTagIds];
+      }
+
+      // 2. Create Content with all tag IDs
+      await api.post("/content", {
+        title,
+        content,
+        contentType,
+        tagIds: finalTagIds,
       });
-      handleComplete();
+
+      onContentCreated();
+      setOpen(false);
+      resetState();
     } catch (err: any) {
-      console.error(err);
       setError(err.response?.data?.error || "Failed to create content");
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleComplete = () => {
-    setOpen(false);
-    onContentCreated();
-    setTimeout(resetState, 300);
-  };
-
-  const toggleTag = (tagId: string) => {
-    setSelectedTagIds(prev => 
-      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
-    );
   };
 
   return (
@@ -171,7 +163,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {step === "content" ? "Create New Content" : "Add Tags"}
+            {step === "content" ? "Step 1: Write Content" : "Step 2: Add Tags"}
           </DialogTitle>
         </DialogHeader>
 
@@ -189,10 +181,10 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
               </label>
               <input
                 id="title"
+                placeholder="Content title..."
+                className="w-full px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Project Documentation"
-                className="w-full px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm"
                 required
               />
             </div>
@@ -222,8 +214,8 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                     <button
                       type="button"
                       onClick={() => setView("write")}
-                      className={`px-3 py-1 text-xs font-medium rounded-sm transition-all ${
-                        view === "write" ? "bg-white shadow-sm text-zinc-900" : "text-zinc-500 hover:text-zinc-900"
+                      className={`px-3 py-1 text-xs font-medium rounded ${
+                        view === "write" ? "bg-white shadow-sm text-black" : "text-zinc-500 hover:text-zinc-700"
                       }`}
                     >
                       Write
@@ -231,8 +223,8 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                     <button
                       type="button"
                       onClick={() => setView("preview")}
-                      className={`px-3 py-1 text-xs font-medium rounded-sm transition-all ${
-                        view === "preview" ? "bg-white shadow-sm text-zinc-900" : "text-zinc-500 hover:text-zinc-900"
+                      className={`px-3 py-1 text-xs font-medium rounded ${
+                        view === "preview" ? "bg-white shadow-sm text-black" : "text-zinc-500 hover:text-zinc-700"
                       }`}
                     >
                       Preview
@@ -240,7 +232,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                   </div>
                 )}
               </div>
-
+              
               {contentType === "MARKDOWN" && view === "preview" ? (
                 <div className="w-full px-4 py-3 border border-zinc-200 rounded-md bg-zinc-50 min-h-[300px] prose prose-sm max-w-none overflow-y-auto">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -250,10 +242,10 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
               ) : (
                 <textarea
                   id="content"
+                  placeholder="Paste or write your content here..."
+                  className="w-full px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm min-h-[300px] font-mono"
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="Write your content here..."
-                  className="w-full px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm min-h-[300px] font-mono"
                   required
                 />
               )}
@@ -271,7 +263,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                 type="submit"
                 className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-zinc-800 transition-colors flex items-center gap-2"
               >
-                Next: Add Tags
+                Next: Select Tags
                 <ArrowRight size={14} />
               </button>
             </DialogFooter>
@@ -279,8 +271,8 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
         ) : (
           <div className="space-y-4 py-4">
              <div className="flex items-center justify-between mb-2 gap-2">
-               <div className="text-sm text-zinc-500">
-                 Select tags to link.
+               <div className="text-sm text-zinc-500 font-medium">
+                 Smart Suggestions
                </div>
                <div className="flex gap-2">
                  <button 
@@ -289,7 +281,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                    className="text-xs flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 bg-indigo-50 rounded-full hover:bg-indigo-100 transition-colors disabled:opacity-50"
                  >
                    <Sparkles size={12} className={isExtractingTags ? "animate-spin" : ""} />
-                   {isExtractingTags ? "Searching..." : "Suggest Tags"}
+                   Suggest Tags
                  </button>
                  <button 
                    onClick={handleExtractKeywords}
@@ -297,58 +289,87 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                    className="text-xs flex items-center gap-1.5 text-purple-600 hover:text-purple-700 font-medium px-2 py-1 bg-purple-50 rounded-full hover:bg-purple-100 transition-colors disabled:opacity-50"
                  >
                    <Sparkles size={12} className={isExtractingKeywords ? "animate-spin" : ""} />
-                   {isExtractingKeywords ? "Analyzing..." : "Potential Tags"}
+                   Potential Tags
                  </button>
                </div>
              </div>
 
-             {suggestedTags.length > 0 && (
-               <div className="mb-4">
-                 <p className="text-[10px] uppercase font-bold text-indigo-400 mb-2 tracking-wider">Suggested from existing:</p>
-                 <div className="flex flex-wrap gap-2">
-                   {suggestedTags.map((tag) => (
-                     <button
-                       key={tag.tagId}
-                       onClick={() => handleTagClick(tag.tagId)}
-                       className="px-3 py-1 rounded-full bg-white border border-indigo-200 text-indigo-700 text-xs font-medium hover:bg-indigo-50 hover:border-indigo-300 transition-all shadow-sm flex items-center gap-1"
-                     >
-                       <Plus size={10} /> {tag.name}
-                     </button>
-                   ))}
-                 </div>
-               </div>
-             )}
+             {/* Combined Suggestion Area */}
+             <div className="bg-zinc-50/50 rounded-xl p-4 border border-zinc-100 space-y-4 min-h-[100px]">
+                {/* Matched Tags */}
+                {suggestedTags.length > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-indigo-400 mb-2 tracking-wider">Matches from your tags:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {suggestedTags.map((tag) => {
+                        const isSelected = selectedTagIds.includes(tag.tagId);
+                        return (
+                          <button
+                            key={tag.tagId}
+                            onClick={() => handleTagClick(tag.tagId)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all flex items-center gap-1.5 ${
+                              isSelected 
+                                ? "bg-indigo-600 text-white border-indigo-700" 
+                                : "bg-white text-indigo-700 border-indigo-200 hover:border-indigo-300"
+                            }`}
+                          >
+                            {isSelected ? <Check size={12} /> : <Plus size={12} />}
+                            {tag.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
-             {extractedKeywords.length > 0 && (
-               <div className="mb-4">
-                 <p className="text-[10px] uppercase font-bold text-purple-400 mb-2 tracking-wider">Potential new keywords:</p>
-                 <div className="flex flex-wrap gap-2">
-                   {extractedKeywords.map((kw) => (
-                     <button
-                       key={kw}
-                       onClick={() => handleKeywordClick(kw)}
-                       className="px-3 py-1 rounded-full bg-white border border-purple-200 text-purple-700 text-xs font-medium hover:bg-purple-50 hover:border-purple-300 transition-all shadow-sm flex items-center gap-1"
-                     >
-                       <Plus size={10} /> {kw}
-                     </button>
-                   ))}
-                 </div>
-               </div>
-             )}
-             
-             <TagSelector selectedTagIds={selectedTagIds} onToggleTag={toggleTag} />
-             
+                {/* Potential Keywords */}
+                {extractedKeywords.length > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-purple-400 mb-2 tracking-wider">New potential keywords:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {extractedKeywords.map((kw) => {
+                        const isSelected = selectedKeywords.includes(kw);
+                        return (
+                          <button
+                            key={kw}
+                            onClick={() => handleKeywordClick(kw)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all flex items-center gap-1.5 ${
+                              isSelected
+                                ? "bg-purple-600 text-white border-purple-700"
+                                : "bg-white text-purple-700 border-purple-200 hover:border-purple-300"
+                            }`}
+                          >
+                            {isSelected ? <Check size={12} /> : <Plus size={12} />}
+                            {kw}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {suggestedTags.length === 0 && extractedKeywords.length === 0 && !isExtractingTags && !isExtractingKeywords && (
+                  <p className="text-sm text-zinc-400 italic text-center py-4">No suggestions yet. Click buttons above to analyze.</p>
+                )}
+             </div>
+
+             <div className="pt-4 border-t border-zinc-100">
+                <div className="text-sm font-medium text-zinc-900 mb-3">All Tags</div>
+                <TagSelector selectedTagIds={selectedTagIds} onToggleTag={toggleTag} />
+             </div>
+
              <DialogFooter className="mt-6">
                <button
                  type="button"
                  onClick={() => setStep("content")}
-                 className="px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors mr-auto"
+                 className="px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors mr-auto flex items-center gap-2"
                >
+                 <ArrowLeft size={14} />
                  Back
                </button>
                <button
                  type="button"
-                 onClick={handleCreateContent}
+                 onClick={handleSubmit}
                  disabled={isLoading}
                  className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-zinc-800 transition-colors disabled:opacity-50 flex items-center gap-2"
                >
