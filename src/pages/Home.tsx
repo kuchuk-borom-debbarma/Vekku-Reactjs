@@ -30,10 +30,9 @@ const Home: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Parallel fetching
         const [contentRes, statsRes, configRes] = await Promise.all([
-          api.get("/content?limit=5"), // Get recent 5
-          api.get("/stats"),           // Get total counts
+          api.get("/content?limit=5"), 
+          api.get("/stats"),           
           api.get("/config").catch(() => ({ data: { githubUrl: "https://github.com", gmailUrl: "mailto:admin@example.com" } }))
         ]);
         
@@ -60,22 +59,22 @@ const Home: React.FC = () => {
   return (
     <div className="space-y-10 pb-12">
       {/* Introduction Hero Section */}
-      <section className="relative overflow-hidden glass-dark rounded-[2.5rem] p-8 md:p-12 text-white shadow-2xl border border-white/10">
-        <div className="absolute top-0 right-0 p-8 opacity-10 animate-pulse hidden md:block">
+      <section className="relative overflow-hidden glass-dark rounded-[2rem] p-8 md:p-12 text-white shadow-xl border border-white/10">
+        <div className="absolute top-0 right-0 p-8 opacity-5 hidden md:block">
           <BrainCircuit size={160} />
         </div>
         
-        <div className="relative z-10 max-w-2xl animate-in fade-in slide-in-from-bottom-8 duration-1000">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 text-xs font-medium mb-8 backdrop-blur-md">
+        <div className="relative z-10 max-w-2xl">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/10 text-xs font-medium mb-8">
             <Sparkles size={14} className="text-yellow-400" />
             AI-Powered Knowledge Base
           </div>
           
-          <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-8 bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-white/50">
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-8">
             Meet Vekku.
           </h1>
           
-          <p className="text-zinc-300 text-lg md:text-xl leading-relaxed mb-10">
+          <p className="text-zinc-300 text-lg md:text-xl leading-relaxed mb-10 font-medium">
             The intelligent workspace where you organize content with precision. 
             Vekku uses <span className="text-white font-semibold">AI to automatically suggest tags</span> and 
             discover <span className="text-white font-semibold">new potential concepts</span> directly from your writing.
@@ -94,14 +93,14 @@ const Home: React.FC = () => {
                 href={config.githubUrl} 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="p-3 bg-white/5 hover:bg-white/20 rounded-2xl transition-all duration-300 border border-white/10 hover:scale-110 active:scale-95 shadow-lg"
+                className="p-3 bg-white/5 hover:bg-white/20 rounded-2xl transition-all duration-300 border border-white/10 shadow-lg"
                 title="GitHub Profile"
               >
                 <Github size={20} />
               </a>
               <a 
                 href={config.gmailUrl} 
-                className="p-3 bg-white/5 hover:bg-white/20 rounded-2xl transition-all duration-300 border border-white/10 hover:scale-110 active:scale-95 shadow-lg"
+                className="p-3 bg-white/5 hover:bg-white/20 rounded-2xl transition-all duration-300 border border-white/10 shadow-lg"
                 title="Send Email"
               >
                 <Mail size={20} />
@@ -112,18 +111,18 @@ const Home: React.FC = () => {
       </section>
 
       {/* Main Content Dashboard */}
-      <div className="space-y-8 animate-in fade-in duration-1000 delay-300">
+      <div className="space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-white drop-shadow-sm">Your Base</h2>
-            <p className="text-white/70 text-sm mt-1 font-medium">{date}</p>
+            <h2 className="text-2xl font-bold text-zinc-900 drop-shadow-sm">Your Base</h2>
+            <p className="text-zinc-500 text-sm mt-1 font-medium">{date}</p>
           </div>
           <div className="flex gap-3">
-            <Link to="/tags" className="flex items-center gap-2 glass px-5 py-2.5 rounded-2xl text-zinc-900 hover:bg-white/50 transition-all text-sm font-bold shadow-lg active:scale-95">
+            <Link to="/tags" className="flex items-center gap-2 glass px-5 py-2.5 rounded-2xl text-zinc-900 hover:bg-white/80 transition-all text-sm font-bold shadow-md">
               <Plus size={18} />
               New Tag
             </Link>
-            <Link to="/contents" className="flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-2xl hover:bg-zinc-900 transition-all text-sm font-bold shadow-xl active:scale-95">
+            <Link to="/contents" className="flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-2xl hover:bg-zinc-900 transition-all text-sm font-bold shadow-lg">
               <Plus size={18} />
               New Content
             </Link>
@@ -133,10 +132,10 @@ const Home: React.FC = () => {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {stats.map((stat) => (
-            <div key={stat.label} className="glass-card p-8 rounded-3xl group">
+            <div key={stat.label} className="glass-card p-8 rounded-3xl">
               <div className="flex items-center justify-between mb-6">
-                <div className={`w-14 h-14 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-500`}>
-                  <stat.icon size={28} />
+                <div className={`w-14 h-14 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center shadow-inner`}>
+                  <stat.icon size={24} />
                 </div>
               </div>
               <p className="text-5xl font-black text-zinc-900 tracking-tighter">{stat.value}</p>
@@ -146,33 +145,33 @@ const Home: React.FC = () => {
         </div>
 
         {/* Recent Activity Section */}
-        <div className="glass rounded-[2rem] border border-white/30 shadow-2xl overflow-hidden mb-12">
-          <div className="px-8 py-6 border-b border-white/10 flex items-center justify-between bg-white/10 backdrop-blur-2xl">
+        <div className="glass rounded-[2rem] border border-white/30 shadow-xl overflow-hidden mb-12">
+          <div className="px-8 py-6 border-b border-white/10 flex items-center justify-between bg-white/40">
             <h3 className="font-bold text-zinc-900 text-lg">Recent Content</h3>
-            <Link to="/contents" className="text-xs text-indigo-700 hover:text-indigo-900 font-black uppercase tracking-widest flex items-center gap-2 bg-white/30 px-4 py-2 rounded-full transition-all hover:bg-white/50">
+            <Link to="/contents" className="text-xs text-indigo-700 hover:text-indigo-900 font-black uppercase tracking-widest flex items-center gap-2 bg-white/50 px-4 py-2 rounded-full transition-all hover:bg-white/80">
               View all <ArrowUpRight size={14} />
             </Link>
           </div>
           
           {isLoading ? (
-            <div className="p-16 text-center text-zinc-600 animate-pulse font-medium">Synchronizing knowledge...</div>
+            <div className="p-16 text-center text-zinc-600 font-medium">Synchronizing knowledge...</div>
           ) : contents.length === 0 ? (
             <div className="p-20 text-center">
-              <div className="w-20 h-20 bg-white/20 rounded-3xl flex items-center justify-center mx-auto mb-6 text-zinc-500 shadow-inner">
+              <div className="w-20 h-20 bg-white/40 rounded-3xl flex items-center justify-center mx-auto mb-6 text-zinc-500 shadow-inner">
                 <FileText size={32} />
               </div>
               <h3 className="text-zinc-900 text-xl font-bold mb-3">Your base is ready</h3>
               <p className="text-zinc-600 text-sm mb-8 max-w-xs mx-auto leading-relaxed">The AI is waiting to process your first entry. Start organizing today.</p>
-              <Link to="/contents" className="inline-flex items-center gap-3 bg-black text-white px-8 py-3 rounded-2xl text-sm font-bold hover:bg-zinc-900 hover:shadow-2xl transition-all active:scale-95 shadow-xl">
+              <Link to="/contents" className="inline-flex items-center gap-3 bg-black text-white px-8 py-3 rounded-2xl text-sm font-bold hover:bg-zinc-900 shadow-xl transition-all">
                 Create First Content
               </Link>
             </div>
           ) : (
             <div className="divide-y divide-white/10">
               {contents.map((content) => (
-                <div key={content.id} className="px-8 py-6 flex items-center justify-between hover:bg-white/30 transition-all duration-300 group cursor-pointer">
+                <div key={content.id} className="px-8 py-6 flex items-center justify-between hover:bg-white/50 transition-all duration-300 group cursor-pointer">
                   <div className="flex items-center gap-5">
-                    <div className="w-12 h-12 rounded-2xl bg-white/40 flex items-center justify-center text-indigo-700 border border-white/50 group-hover:scale-110 transition-all duration-500 shadow-sm">
+                    <div className="w-12 h-12 rounded-2xl bg-white/60 flex items-center justify-center text-indigo-700 border border-white/50 shadow-sm">
                       <FileText size={20} />
                     </div>
                     <div>

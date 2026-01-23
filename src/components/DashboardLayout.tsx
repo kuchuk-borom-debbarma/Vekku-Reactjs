@@ -66,12 +66,12 @@ const DashboardLayout: React.FC = () => {
   return (
     <div className="flex min-h-screen">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-64 glass border-r border-white/20 flex-col fixed inset-y-0 z-20 m-4 rounded-3xl overflow-hidden shadow-2xl">
+      <aside className="hidden lg:flex w-64 glass border-r border-white/20 flex-col fixed inset-y-0 z-20">
         <SidebarContent />
       </aside>
 
       {/* Mobile Top Bar */}
-      <header className="lg:hidden h-16 glass border-b border-white/20 fixed top-0 inset-x-0 z-30 flex items-center px-4 gap-4 m-2 rounded-2xl shadow-lg">
+      <header className="lg:hidden h-16 glass border-b border-white/20 fixed top-0 inset-x-0 z-30 flex items-center px-4 gap-4 shadow-sm">
         <Sheet>
           <SheetTrigger asChild>
             <button className="p-2 text-zinc-700 hover:bg-white/20 rounded-lg transition-colors">
@@ -94,8 +94,8 @@ const DashboardLayout: React.FC = () => {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 lg:ml-72 p-4 md:p-8 pt-24 lg:pt-8 min-h-screen">
-        <div className="max-w-6xl mx-auto animate-in fade-in zoom-in duration-700">
+      <main className="flex-1 lg:ml-64 p-4 md:p-8 pt-20 lg:pt-8 min-h-screen">
+        <div className="max-w-6xl mx-auto">
           <Outlet />
         </div>
       </main>
