@@ -7,7 +7,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, ArrowRight, Check } from "lucide-react";
+import { Plus, ArrowRight, Check, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import api from "@/lib/api";
@@ -31,6 +31,10 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   const [step, setStep] = useState<"content" | "tags">("content");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   
+  // Extraction State
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractedKeywords, setExtractedKeywords] = useState<string[]>([]);
+  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -41,6 +45,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     setView("write");
     setStep("content");
     setSelectedTagIds([]);
+    setExtractedKeywords([]);
     setError("");
   };
 
@@ -52,6 +57,37 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     }
     setError("");
     setStep("tags");
+  };
+
+  const handleExtractKeywords = async () => {
+    setIsExtracting(true);
+    setExtractedKeywords([]);
+    try {
+      const res = await api.post("/suggestions/extract", { text: content });
+      setExtractedKeywords(res.data.keywords || []);
+    } catch (err) {
+      console.error("Failed to extract keywords:", err);
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const handleKeywordClick = async (keyword: string) => {
+    try {
+      // Create or get existing tag
+      const res = await api.post("/tag", { name: keyword, semantic: keyword });
+      const tag = res.data;
+      
+      // Add to selection if not already selected
+      if (!selectedTagIds.includes(tag.id)) {
+        setSelectedTagIds(prev => [...prev, tag.id]);
+      }
+      
+      // Remove from suggestions list to indicate usage
+      setExtractedKeywords(prev => prev.filter(k => k !== keyword));
+    } catch (err) {
+      console.error("Failed to add keyword tag:", err);
+    }
   };
 
   const handleCreateContent = async () => {
@@ -209,9 +245,36 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
           </form>
         ) : (
           <div className="space-y-4 py-4">
-             <div className="text-sm text-zinc-500 mb-2">
-               Select tags to link to your new content. You can skip this step if you wish.
+             <div className="flex items-center justify-between mb-2">
+               <div className="text-sm text-zinc-500">
+                 Select tags to link.
+               </div>
+               <button 
+                 onClick={handleExtractKeywords}
+                 disabled={isExtracting}
+                 className="text-xs flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 bg-indigo-50 rounded-full hover:bg-indigo-100 transition-colors disabled:opacity-50"
+               >
+                 <Sparkles size={12} className={isExtracting ? "animate-spin" : ""} />
+                 {isExtracting ? "Analyzing..." : "Suggest Keywords"}
+               </button>
              </div>
+
+             {extractedKeywords.length > 0 && (
+               <div className="mb-4">
+                 <p className="text-xs text-zinc-400 mb-2">Suggestions based on content:</p>
+                 <div className="flex flex-wrap gap-2">
+                   {extractedKeywords.map((kw) => (
+                     <button
+                       key={kw}
+                       onClick={() => handleKeywordClick(kw)}
+                       className="px-3 py-1 rounded-full bg-white border border-indigo-200 text-indigo-700 text-xs font-medium hover:bg-indigo-50 hover:border-indigo-300 transition-all shadow-sm"
+                     >
+                       + {kw}
+                     </button>
+                   ))}
+                 </div>
+               </div>
+             )}
              
              <TagSelector selectedTagIds={selectedTagIds} onToggleTag={toggleTag} />
              
