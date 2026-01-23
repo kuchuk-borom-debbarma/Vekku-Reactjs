@@ -244,8 +244,9 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
     
   const displayedKeywordSuggestions = keywordSuggestions
     .filter((k) => {
+      // Ignore empty, whitespace, or single-character noise
       if (!k.name || k.name.trim().length < 2) return false;
-      const lowerName = k.name.toLowerCase();
+      const lowerName = k.name.trim().toLowerCase();
       // Case-insensitive check against active tags
       return !activeTags.some((active) => active.name.toLowerCase() === lowerName);
     })

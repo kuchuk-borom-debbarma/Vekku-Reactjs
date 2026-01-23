@@ -336,26 +336,33 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                   <div>
                     <p className="text-[10px] uppercase font-bold text-purple-400 mb-2 tracking-wider">New potential keywords:</p>
                     <div className="flex flex-wrap gap-2">
-                      {extractedKeywords.map((kw) => {
-                        const isSelected = selectedKeywords.includes(kw.keyword);
-                        return (
-                          <button
-                            key={kw.keyword}
-                            onClick={() => handleKeywordClick(kw.keyword)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all flex items-center gap-1.5 ${
-                              isSelected
-                                ? "bg-purple-600 text-white border-purple-700"
-                                : "bg-white text-purple-700 border-purple-200 hover:border-purple-300"
-                            }`}
-                          >
-                            {isSelected ? <Check size={12} /> : <Plus size={12} />}
-                            {kw.keyword}
-                            <span className={`text-[9px] px-1 rounded-sm ml-1 ${isSelected ? "bg-purple-500/50 text-white" : "bg-zinc-100 text-zinc-400"}`}>
-                              {kw.score}
-                            </span>
-                          </button>
-                        );
-                      })}
+                      {extractedKeywords
+                        .filter(kw => {
+                          if (!kw.keyword || kw.keyword.trim().length < 2) return false;
+                          const lower = kw.keyword.trim().toLowerCase();
+                          // Don't show if already in matched suggestions or existing tags
+                          return !suggestedTags.some(s => s.name.toLowerCase() === lower);
+                        })
+                        .map((kw) => {
+                          const isSelected = selectedKeywords.includes(kw.keyword);
+                          return (
+                            <button
+                              key={kw.keyword}
+                              onClick={() => handleKeywordClick(kw.keyword)}
+                              className={`px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all flex items-center gap-1.5 ${
+                                isSelected
+                                  ? "bg-purple-600 text-white border-purple-700"
+                                  : "bg-white text-purple-700 border-purple-200 hover:border-purple-300"
+                              }`}
+                            >
+                              {isSelected ? <Check size={12} /> : <Plus size={12} />}
+                              {kw.keyword}
+                              <span className={`text-[9px] px-1 rounded-sm ml-1 ${isSelected ? "bg-purple-500/50 text-white" : "bg-zinc-100 text-zinc-400"}`}>
+                                {kw.score}
+                              </span>
+                            </button>
+                          );
+                        })}
                     </div>
                   </div>
                 )}
