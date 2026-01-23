@@ -228,8 +228,9 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
         text: content.body, 
         mode: "tags" 
       });
-      const { existing = [] } = res.data || {};
+      const { existing = [], potential = [] } = res.data || {};
       setTagSuggestions(existing.map((s: any) => ({ ...s, id: s.tagId, type: "EXISTING" })));
+      setKeywordSuggestions(potential.map((p: any) => ({ ...p, name: p.keyword, type: "KEYWORD" })));
     } catch (error: any) {
       console.error("Failed to generate tags:", error);
       if (error.response?.status === 429) {
@@ -248,7 +249,8 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
         text: content.body, 
         mode: "keywords" 
       });
-      const { potential = [] } = res.data || {};
+      const { existing = [], potential = [] } = res.data || {};
+      setTagSuggestions(existing.map((s: any) => ({ ...s, id: s.tagId, type: "EXISTING" })));
       setKeywordSuggestions(potential.map((p: any) => ({ ...p, name: p.keyword, type: "KEYWORD" })));
     } catch (error: any) {
       console.error("Failed to discover keywords:", error);

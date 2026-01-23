@@ -71,12 +71,14 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     try {
       const res = await api.post("/suggestions/generate", { text: content, mode: "tags" });
       setSuggestedTags(res.data.existing || []);
+      setExtractedKeywords(res.data.potential || []);
     } catch (err: any) {
       console.error("Failed to suggest tags:", err);
       if (err.response?.status === 429) {
         alert("AI rate limit exceeded for tags. Please wait a minute.");
       }
-    } finally {
+    }
+    finally {
       setIsExtractingTags(false);
     }
   };
@@ -86,12 +88,14 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     try {
       const res = await api.post("/suggestions/generate", { text: content, mode: "keywords" });
       setExtractedKeywords(res.data.potential || []);
+      setSuggestedTags(res.data.existing || []);
     } catch (err: any) {
       console.error("Failed to suggest keywords:", err);
       if (err.response?.status === 429) {
         alert("AI rate limit exceeded for keywords. Please wait a minute.");
       }
-    } finally {
+    }
+    finally {
       setIsExtractingKeywords(false);
     }
   };
