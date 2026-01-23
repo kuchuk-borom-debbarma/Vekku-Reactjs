@@ -334,8 +334,12 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
             </div>
             
             <div className="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100 min-h-[100px]">
+              {(displayedTagSuggestions.length > 0 || displayedKeywordSuggestions.length > 0) && (
+                <p className="text-[10px] text-indigo-400 font-medium italic border-b border-indigo-100 pb-2 mb-3">
+                  Note: Lower distance scores indicate a more accurate semantic match.
+                </p>
+              )}
               <div className="space-y-4">
-                {/* Existing Tag Suggestions */}
                 {displayedTagSuggestions.length > 0 && (
                   <div>
                     <p className="text-[10px] uppercase font-bold text-indigo-400 mb-2 tracking-wider">Matched Tags</p>
@@ -343,9 +347,12 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                       {displayedTagSuggestions.map((tag) => {
                         const isSelected = selectedSuggestionIds.includes(tag.id!);
                         return (
-                          <button key={tag.id} onClick={() => toggleSuggestion(tag.id!)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm transition-all ${isSelected ? "bg-indigo-100 text-indigo-800 border-indigo-300 ring-1 ring-indigo-300" : "bg-white text-indigo-700 border-indigo-200 hover:shadow-md hover:-translate-y-0.5"}`}>
+                          <button key={tag.id} onClick={() => toggleSuggestion(tag.id!)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all ${isSelected ? "bg-indigo-600 text-white border-indigo-700" : "bg-white text-indigo-700 border-indigo-200 hover:shadow-md hover:-translate-y-0.5"}`}>
                             {isSelected && <Check size={12} className="text-indigo-600" />}
                             {tag.name}
+                            <span className={`text-[9px] px-1 rounded-sm ml-1 ${isSelected ? "bg-indigo-500/50 text-white" : "bg-zinc-100 text-zinc-400"}`}>
+                              {tag.score}
+                            </span>
                           </button>
                         );
                       })}
@@ -353,7 +360,6 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                   </div>
                 )}
 
-                {/* Keyword Suggestions */}
                 {displayedKeywordSuggestions.length > 0 && (
                   <div>
                     <p className="text-[10px] uppercase font-bold text-purple-400 mb-2 tracking-wider">Potential Tags</p>
@@ -361,15 +367,19 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                       {displayedKeywordSuggestions.map((kw) => {
                         const isSelected = selectedKeywordNames.includes(kw.name);
                         return (
-                          <button key={kw.name} onClick={() => handleKeywordClick(kw.name)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm transition-all ${isSelected ? "bg-purple-100 text-purple-800 border-purple-300 ring-1 ring-purple-300" : "bg-white text-purple-700 border-purple-200 hover:shadow-md hover:border-purple-300 hover:bg-purple-50"}`}>
+                          <button key={kw.name} onClick={() => handleKeywordClick(kw.name)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all ${isSelected ? "bg-purple-100 text-purple-800 border-purple-300 ring-1 ring-purple-300" : "bg-white text-purple-700 border-purple-200 hover:shadow-md hover:border-purple-300 hover:bg-purple-50"}`}>
                             {isSelected ? <Check size={12} className="text-purple-600" /> : <Plus size={12} />}
                             {kw.name}
+                            <span className={`text-[9px] px-1 rounded-sm ml-1 ${isSelected ? "bg-purple-500/50 text-white" : "bg-zinc-100 text-zinc-400"}`}>
+                              {kw.score}
+                            </span>
                           </button>
                         );
                       })}
                     </div>
                   </div>
                 )}
+
 
                 {displayedTagSuggestions.length === 0 && displayedKeywordSuggestions.length === 0 && !isLoadingTags && (
                    <div className="text-center text-zinc-400 text-sm py-4 italic">No suggestions found.</div>

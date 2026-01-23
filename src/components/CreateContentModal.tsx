@@ -30,7 +30,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   const [isExtractingTags, setIsExtractingTags] = useState(false);
   const [isExtractingKeywords, setIsExtractingKeywords] = useState(false);
   const [suggestedTags, setSuggestedTags] = useState<any[]>([]);
-  const [extractedKeywords, setExtractedKeywords] = useState<string[]>([]);
+  const [extractedKeywords, setExtractedKeywords] = useState<{keyword: string, score: string}[]>([]);
   
   // Selection State (Local until save)
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
@@ -296,6 +296,12 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
              {/* Combined Suggestion Area */}
              <div className="bg-zinc-50/50 rounded-xl p-4 border border-zinc-100 space-y-4 min-h-[100px]">
+                {(suggestedTags.length > 0 || extractedKeywords.length > 0) && (
+                  <p className="text-[10px] text-zinc-400 font-medium italic border-b border-zinc-100 pb-2 mb-2">
+                    Note: Lower distance scores indicate a more accurate semantic match.
+                  </p>
+                )}
+
                 {/* Matched Tags */}
                 {suggestedTags.length > 0 && (
                   <div>
@@ -315,6 +321,9 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                           >
                             {isSelected ? <Check size={12} /> : <Plus size={12} />}
                             {tag.name}
+                            <span className={`text-[9px] px-1 rounded-sm ml-1 ${isSelected ? "bg-indigo-500/50 text-white" : "bg-zinc-100 text-zinc-400"}`}>
+                              {tag.score}
+                            </span>
                           </button>
                         );
                       })}
@@ -328,11 +337,11 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                     <p className="text-[10px] uppercase font-bold text-purple-400 mb-2 tracking-wider">New potential keywords:</p>
                     <div className="flex flex-wrap gap-2">
                       {extractedKeywords.map((kw) => {
-                        const isSelected = selectedKeywords.includes(kw);
+                        const isSelected = selectedKeywords.includes(kw.keyword);
                         return (
                           <button
-                            key={kw}
-                            onClick={() => handleKeywordClick(kw)}
+                            key={kw.keyword}
+                            onClick={() => handleKeywordClick(kw.keyword)}
                             className={`px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all flex items-center gap-1.5 ${
                               isSelected
                                 ? "bg-purple-600 text-white border-purple-700"
@@ -340,7 +349,10 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                             }`}
                           >
                             {isSelected ? <Check size={12} /> : <Plus size={12} />}
-                            {kw}
+                            {kw.keyword}
+                            <span className={`text-[9px] px-1 rounded-sm ml-1 ${isSelected ? "bg-purple-500/50 text-white" : "bg-zinc-100 text-zinc-400"}`}>
+                              {kw.score}
+                            </span>
                           </button>
                         );
                       })}
