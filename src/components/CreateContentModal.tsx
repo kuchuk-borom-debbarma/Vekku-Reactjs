@@ -85,7 +85,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     setIsExtractingKeywords(true);
     try {
       const res = await api.post("/suggestions/generate", { text: content, mode: "keywords" });
-      setExtractedKeywords((res.data.potential || []).map((p: any) => p.keyword));
+      setExtractedKeywords(res.data.potential || []);
     } catch (err: any) {
       console.error("Failed to suggest keywords:", err);
       if (err.response?.status === 429) {
