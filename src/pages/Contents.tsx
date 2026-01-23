@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, ChevronLeft, ChevronRight, Trash2, Filter, X, Search } from "lucide-react";
+import { FileText, ChevronLeft, ChevronRight, Trash2, Filter, X } from "lucide-react";
 import api from "@/lib/api";
 import CreateContentModal from "@/components/CreateContentModal";
 import EditContentModal from "@/components/EditContentModal";
