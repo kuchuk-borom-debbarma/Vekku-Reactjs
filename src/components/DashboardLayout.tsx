@@ -71,14 +71,7 @@ const DashboardLayout: React.FC = () => {
       </aside>
 
       {/* Mobile Top Bar */}
-      <header className="lg:hidden h-16 bg-white border-b border-zinc-200 fixed top-0 inset-x-0 z-30 flex items-center justify-between px-4">
-        <Link to="/" className="text-xl font-bold text-zinc-900 tracking-tight flex items-center gap-2">
-          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white">
-            <span className="font-bold text-sm">V</span>
-          </div>
-          Vekku
-        </Link>
-
+      <header className="lg:hidden h-16 bg-white border-b border-zinc-200 fixed top-0 inset-x-0 z-30 flex items-center px-4 gap-4">
         <Sheet>
           <SheetTrigger asChild>
             <button className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg">
@@ -91,6 +84,13 @@ const DashboardLayout: React.FC = () => {
             </div>
           </SheetContent>
         </Sheet>
+
+        <Link to="/" className="text-xl font-bold text-zinc-900 tracking-tight flex items-center gap-2">
+          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white">
+            <span className="font-bold text-sm">V</span>
+          </div>
+          Vekku
+        </Link>
       </header>
 
       {/* Main Content Area */}
