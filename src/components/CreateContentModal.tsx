@@ -340,7 +340,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                         .filter(kw => {
                           if (!kw.keyword || kw.keyword.trim().length < 2) return false;
                           const lower = kw.keyword.trim().toLowerCase();
-                          // Don't show if already in matched suggestions or existing tags
+                          // Don't show if already in matched suggestions
                           return !suggestedTags.some(s => s.name.toLowerCase() === lower);
                         })
                         .map((kw) => {
@@ -356,7 +356,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                               }`}
                             >
                               {isSelected ? <Check size={12} /> : <Plus size={12} />}
-                              {kw.keyword}
+                              <span>{kw.keyword}</span>
                               <span className={`text-[9px] px-1 rounded-sm ml-1 ${isSelected ? "bg-purple-500/50 text-white" : "bg-zinc-100 text-zinc-400"}`}>
                                 {kw.score}
                               </span>

@@ -375,9 +375,9 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                       {displayedKeywordSuggestions.map((kw) => {
                         const isSelected = selectedKeywordNames.includes(kw.name);
                         return (
-                          <button key={kw.name} onClick={() => handleKeywordClick(kw.name)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all ${isSelected ? "bg-purple-100 text-purple-800 border-purple-300 ring-1 ring-purple-300" : "bg-white text-purple-700 border-purple-200 hover:shadow-md hover:border-purple-300 hover:bg-purple-50"}`}>
+                          <button key={kw.name} onClick={() => handleKeywordClick(kw.name)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all ${isSelected ? "bg-purple-100 text-purple-800 border-purple-300 ring-1 ring-purple-300" : "bg-white text-purple-700 border-indigo-200 hover:shadow-md hover:border-purple-300 hover:bg-purple-50"}`}>
                             {isSelected ? <Check size={12} className="text-purple-600" /> : <Plus size={12} />}
-                            {kw.name}
+                            <span>{kw.name}</span>
                             <span className={`text-[9px] px-1 rounded-sm ml-1 ${isSelected ? "bg-purple-500/50 text-white" : "bg-zinc-100 text-zinc-400"}`}>
                               {kw.score}
                             </span>
