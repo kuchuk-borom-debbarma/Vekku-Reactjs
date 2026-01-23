@@ -82,38 +82,50 @@ const Tags: React.FC = () => {
   const handleNext = () => {
     if (!metadata) return;
 
-    // Check if we can just increase offset within current chunk
-    if (offset + LIMIT < metadata.chunkTotalItems) {
-      setOffset(offset + LIMIT);
-    } 
-    // Otherwise check if there is a next chunk
-    else if (metadata.nextChunkId) {
-      setChunkStack([...chunkStack, chunkId || ""]); // Push current chunk (empty string if initial)
-      setChunkId(metadata.nextChunkId);
-      setOffset(0);
+    if (debouncedQuery) {
+      // Simple offset pagination for search
+      if (offset + LIMIT < metadata.chunkTotalItems) {
+        setOffset(offset + LIMIT);
+      }
+    } else {
+      // Chunk-based pagination for the full list
+      if (offset + LIMIT < metadata.chunkTotalItems) {
+        setOffset(offset + LIMIT);
+      } else if (metadata.nextChunkId) {
+        setChunkStack([...chunkStack, chunkId || ""]);
+        setChunkId(metadata.nextChunkId);
+        setOffset(0);
+      }
     }
   };
 
   const handlePrev = () => {
-    // Check if we can decrease offset within current chunk
-    if (offset - LIMIT >= 0) {
-      setOffset(offset - LIMIT);
-    }
-    // Otherwise go back to previous chunk if available
-    else if (chunkStack.length > 0) {
-      const prevStack = [...chunkStack];
-      const prevChunk = prevStack.pop();
-      setChunkStack(prevStack);
-      
-      // When going back to a previous chunk, we reset to offset 0 (simplification)
-      // Ideally we would go to the end, but that requires knowing the previous chunk's size
-      setChunkId(prevChunk === "" ? undefined : prevChunk);
-      setOffset(0);
+    if (debouncedQuery) {
+      // Simple offset pagination for search
+      if (offset - LIMIT >= 0) {
+        setOffset(offset - LIMIT);
+      }
+    } else {
+      // Chunk-based pagination for the full list
+      if (offset - LIMIT >= 0) {
+        setOffset(offset - LIMIT);
+      } else if (chunkStack.length > 0) {
+        const prevStack = [...chunkStack];
+        const prevChunk = prevStack.pop();
+        setChunkStack(prevStack);
+        setChunkId(prevChunk === "" ? undefined : prevChunk);
+        setOffset(0);
+      }
     }
   };
 
-  const canGoNext = metadata ? (offset + LIMIT < metadata.chunkTotalItems || !!metadata.nextChunkId) : false;
-  const canGoPrev = offset > 0 || chunkStack.length > 0;
+  const canGoNext = metadata ? (
+    debouncedQuery 
+      ? offset + LIMIT < metadata.chunkTotalItems 
+      : (offset + LIMIT < metadata.chunkTotalItems || !!metadata.nextChunkId)
+  ) : false;
+
+  const canGoPrev = debouncedQuery ? offset > 0 : (offset > 0 || chunkStack.length > 0);
 
   return (
     <div className="space-y-6">
@@ -162,18 +174,22 @@ const Tags: React.FC = () => {
                 <div className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center mb-3">
                   <TagIcon className="text-zinc-300" />
                 </div>
-                <p className="font-medium text-zinc-900">No tags found.</p>
-                <p className="text-xs text-zinc-400 mt-1 max-w-xs text-center">Tags allow you to organize your content semantically. Create one to get started.</p>
-                <div className="mt-4">
-                  <CreateTagModal 
-                    onTagCreated={handleRefresh} 
-                    trigger={
-                      <button className="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
-                        Create Tag
-                      </button>
-                    }
-                  />
-                </div>
+                <p className="font-medium text-zinc-900">{debouncedQuery ? "No tags match your search." : "No tags found."}</p>
+                <p className="text-xs text-zinc-400 mt-1 max-w-xs text-center">
+                  {debouncedQuery ? "Try a different search term or create a new tag." : "Tags allow you to organize your content semantically. Create one to get started."}
+                </p>
+                {!debouncedQuery && (
+                  <div className="mt-4">
+                    <CreateTagModal 
+                      onTagCreated={handleRefresh} 
+                      trigger={
+                        <button className="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+                          Create Tag
+                        </button>
+                      }
+                    />
+                  </div>
+                )}
             </div>
          ) : (
            <div className="flex-1 divide-y divide-zinc-50">
@@ -208,7 +224,7 @@ const Tags: React.FC = () => {
          {tags.length > 0 && (
            <div className="border-t border-zinc-100 px-6 py-3 flex items-center justify-between bg-zinc-50/50">
              <span className="text-xs text-zinc-500">
-                Showing {offset + 1}-{Math.min(offset + LIMIT, metadata?.chunkTotalItems || 0)} of {metadata?.chunkTotalItems || 0} in this segment
+                Showing {offset + 1}-{Math.min(offset + LIMIT, metadata?.chunkTotalItems || 0)} of {metadata?.chunkTotalItems || 0} {debouncedQuery ? "matches" : "in this segment"}
              </span>
              <div className="flex items-center gap-2">
                <button

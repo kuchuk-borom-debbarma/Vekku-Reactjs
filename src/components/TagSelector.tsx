@@ -83,29 +83,46 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTagIds, onToggleTag }
   const handleNext = () => {
     if (!metadata) return;
 
-    if (offset + LIMIT < metadata.chunkTotalItems) {
-      setOffset(offset + LIMIT);
-    } else if (metadata.nextChunkId) {
-      setChunkStack([...chunkStack, chunkId || ""]);
-      setChunkId(metadata.nextChunkId);
-      setOffset(0);
+    if (debouncedQuery) {
+      if (offset + LIMIT < metadata.chunkTotalItems) {
+        setOffset(offset + LIMIT);
+      }
+    } else {
+      if (offset + LIMIT < metadata.chunkTotalItems) {
+        setOffset(offset + LIMIT);
+      } else if (metadata.nextChunkId) {
+        setChunkStack([...chunkStack, chunkId || ""]);
+        setChunkId(metadata.nextChunkId);
+        setOffset(0);
+      }
     }
   };
 
   const handlePrev = () => {
-    if (offset - LIMIT >= 0) {
-      setOffset(offset - LIMIT);
-    } else if (chunkStack.length > 0) {
-      const prevStack = [...chunkStack];
-      const prevChunk = prevStack.pop();
-      setChunkStack(prevStack);
-      setChunkId(prevChunk === "" ? undefined : prevChunk);
-      setOffset(0);
+    if (debouncedQuery) {
+      if (offset - LIMIT >= 0) {
+        setOffset(offset - LIMIT);
+      }
+    } else {
+      if (offset - LIMIT >= 0) {
+        setOffset(offset - LIMIT);
+      } else if (chunkStack.length > 0) {
+        const prevStack = [...chunkStack];
+        const prevChunk = prevStack.pop();
+        setChunkStack(prevStack);
+        setChunkId(prevChunk === "" ? undefined : prevChunk);
+        setOffset(0);
+      }
     }
   };
 
-  const canGoNext = metadata ? (offset + LIMIT < metadata.chunkTotalItems || !!metadata.nextChunkId) : false;
-  const canGoPrev = offset > 0 || chunkStack.length > 0;
+  const canGoNext = metadata ? (
+    debouncedQuery 
+      ? offset + LIMIT < metadata.chunkTotalItems 
+      : (offset + LIMIT < metadata.chunkTotalItems || !!metadata.nextChunkId)
+  ) : false;
+
+  const canGoPrev = debouncedQuery ? offset > 0 : (offset > 0 || chunkStack.length > 0);
 
   return (
     <div className="space-y-4">
@@ -139,7 +156,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTagIds, onToggleTag }
           </div>
         ) : tags.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 p-4">
-            <p className="text-sm">No tags found.</p>
+            <p className="text-sm">{debouncedQuery ? "No tags match your search." : "No tags found."}</p>
           </div>
         ) : (
           <div className="flex-1 divide-y divide-zinc-50">
@@ -174,7 +191,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({ selectedTagIds, onToggleTag }
         {tags.length > 0 && (
           <div className="border-t border-zinc-100 px-4 py-2 flex items-center justify-between bg-zinc-50/50">
             <span className="text-[10px] text-zinc-500">
-              {offset + 1}-{Math.min(offset + LIMIT, metadata?.chunkTotalItems || 0)} of {metadata?.chunkTotalItems || 0}
+              {offset + 1}-{Math.min(offset + LIMIT, metadata?.chunkTotalItems || 0)} of {metadata?.chunkTotalItems || 0} {debouncedQuery ? "matches" : ""}
             </span>
             <div className="flex items-center gap-1">
               <button
