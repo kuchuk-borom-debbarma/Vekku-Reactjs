@@ -74,9 +74,9 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
   const handleKeywordClick = async (keyword: string) => {
     try {
-      // Create or get existing tag
-      const res = await api.post("/tag", { name: keyword, semantic: keyword });
-      const tag = res.data;
+      // Create or get existing tag (Batch format)
+      const res = await api.post("/tag", { tags: [{ name: keyword, semantic: keyword }] });
+      const tag = res.data[0];
       
       // Add to selection if not already selected
       if (!selectedTagIds.includes(tag.id)) {
