@@ -68,9 +68,10 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
     setIsLoadingTags(true);
     let isMounted = true;
     try {
+      // Use the generation endpoint instead of GET to ensure missing suggestions are created
       const [tagsRes, suggestionsRes] = await Promise.all([
         api.get(`/content/${content.id}/tags`),
-        api.get(`/suggestions/content/${content.id}?mode=${mode}`),
+        api.post(`/suggestions/generate`, { contentId: content.id, mode }),
       ]);
       
       if (!isMounted) return;
@@ -97,7 +98,11 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
       setSelectedTagIds(currentTags.map((t: TagItem) => t.id));
     } catch (error: any) {
       if (!isMounted) return;
-      console.error("Failed to fetch tags:", error);
+      console.error("Failed to fetch tags and suggestions:", error);
+      if (error.response?.status === 429) {
+        // If we hit rate limit on auto-load, we still show the active tags but maybe set an error for suggestions
+        console.warn("AI rate limit hit during auto-load.");
+      }
     } finally {
       if (isMounted) {
         setIsLoadingTags(false);
