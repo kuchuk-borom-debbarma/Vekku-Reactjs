@@ -198,10 +198,16 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
   const handleRegenerateSuggestions = async () => {
     setIsRegenerating(true);
     try {
-      await api.post(`/suggestions/content/${content.id}/regenerate`);
-      await fetchTagsAndSuggestions();
-    } catch (error) {
-      console.error("Failed to regenerate suggestions:", error);
+      const res = await api.post("/suggestions/generate", { contentId: content.id });
+      // The response is now { existing: [], potential: [] }
+      const { existing = [], potential = [] } = res.data || {};
+      setTagSuggestions(existing.map((s: any) => ({ ...s, id: s.tagId, type: "EXISTING" })));
+      setKeywordSuggestions(potential.map((p: any) => ({ ...p, name: p.keyword, type: "KEYWORD" })));
+    } catch (error: any) {
+      console.error("Failed to generate suggestions:", error);
+      if (error.response?.status === 429) {
+        alert("AI rate limit exceeded. Please wait a minute before trying again.");
+      }
     } finally {
       setIsRegenerating(false);
     }

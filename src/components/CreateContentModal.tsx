@@ -59,14 +59,18 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     setStep("tags");
   };
 
-  const handleExtractKeywords = async () => {
+  const handleSuggestTags = async () => {
     setIsExtracting(true);
     setExtractedKeywords([]);
     try {
-      const res = await api.post("/suggestions/extract", { text: content });
-      setExtractedKeywords(res.data.keywords || []);
-    } catch (err) {
-      console.error("Failed to extract keywords:", err);
+      const res = await api.post("/suggestions/generate", { text: content });
+      // For new content, it returns only potential keywords for now
+      setExtractedKeywords((res.data.potential || []).map((p: any) => p.keyword));
+    } catch (err: any) {
+      console.error("Failed to suggest tags:", err);
+      if (err.response?.status === 429) {
+        alert("AI rate limit exceeded. Please wait a minute.");
+      }
     } finally {
       setIsExtracting(false);
     }
@@ -250,12 +254,12 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                  Select tags to link.
                </div>
                <button 
-                 onClick={handleExtractKeywords}
+                 onClick={handleSuggestTags}
                  disabled={isExtracting}
                  className="text-xs flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 bg-indigo-50 rounded-full hover:bg-indigo-100 transition-colors disabled:opacity-50"
                >
                  <Sparkles size={12} className={isExtracting ? "animate-spin" : ""} />
-                 {isExtracting ? "Analyzing..." : "Suggest Keywords"}
+                 {isExtracting ? "Analyzing..." : "Suggest Tags"}
                </button>
              </div>
 
