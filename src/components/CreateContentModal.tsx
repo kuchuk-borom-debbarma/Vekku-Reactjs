@@ -60,6 +60,10 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     }
     setError("");
     setStep("tags");
+    
+    // Automatically trigger suggestions to save user a step
+    handleSuggestTags();
+    handleExtractKeywords();
   };
 
   const handleSuggestTags = async () => {
