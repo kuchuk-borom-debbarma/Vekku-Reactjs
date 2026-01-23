@@ -32,7 +32,9 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   
   // Extraction State
-  const [isExtracting, setIsExtracting] = useState(false);
+  const [isExtractingTags, setIsExtractingTags] = useState(false);
+  const [isExtractingKeywords, setIsExtractingKeywords] = useState(false);
+  const [suggestedTags, setSuggestedTags] = useState<any[]>([]);
   const [extractedKeywords, setExtractedKeywords] = useState<string[]>([]);
   
   const [isLoading, setIsLoading] = useState(false);
@@ -45,6 +47,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     setView("write");
     setStep("content");
     setSelectedTagIds([]);
+    setSuggestedTags([]);
     setExtractedKeywords([]);
     setError("");
   };
@@ -60,19 +63,34 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   };
 
   const handleSuggestTags = async () => {
-    setIsExtracting(true);
-    setExtractedKeywords([]);
+    setIsExtractingTags(true);
+    setSuggestedTags([]);
     try {
-      const res = await api.post("/suggestions/generate", { text: content });
-      // For new content, it returns only potential keywords for now
-      setExtractedKeywords((res.data.potential || []).map((p: any) => p.keyword));
+      const res = await api.post("/suggestions/generate", { text: content, mode: "tags" });
+      setSuggestedTags(res.data.existing || []);
     } catch (err: any) {
       console.error("Failed to suggest tags:", err);
       if (err.response?.status === 429) {
-        alert("AI rate limit exceeded. Please wait a minute.");
+        alert("AI rate limit exceeded for tags. Please wait a minute.");
       }
     } finally {
-      setIsExtracting(false);
+      setIsExtractingTags(false);
+    }
+  };
+
+  const handleExtractKeywords = async () => {
+    setIsExtractingKeywords(true);
+    setExtractedKeywords([]);
+    try {
+      const res = await api.post("/suggestions/generate", { text: content, mode: "keywords" });
+      setExtractedKeywords((res.data.potential || []).map((p: any) => p.keyword));
+    } catch (err: any) {
+      console.error("Failed to suggest keywords:", err);
+      if (err.response?.status === 429) {
+        alert("AI rate limit exceeded for keywords. Please wait a minute.");
+      }
+    } finally {
+      setIsExtractingKeywords(false);
     }
   };
 
@@ -92,6 +110,13 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     } catch (err) {
       console.error("Failed to add keyword tag:", err);
     }
+  };
+
+  const handleTagClick = (tagId: string) => {
+    setSelectedTagIds(prev => 
+      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
+    );
+    setSuggestedTags(prev => prev.filter(t => t.tagId !== tagId));
   };
 
   const handleCreateContent = async () => {
@@ -249,31 +274,58 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
           </form>
         ) : (
           <div className="space-y-4 py-4">
-             <div className="flex items-center justify-between mb-2">
+             <div className="flex items-center justify-between mb-2 gap-2">
                <div className="text-sm text-zinc-500">
                  Select tags to link.
                </div>
-               <button 
-                 onClick={handleSuggestTags}
-                 disabled={isExtracting}
-                 className="text-xs flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 bg-indigo-50 rounded-full hover:bg-indigo-100 transition-colors disabled:opacity-50"
-               >
-                 <Sparkles size={12} className={isExtracting ? "animate-spin" : ""} />
-                 {isExtracting ? "Analyzing..." : "Suggest Tags"}
-               </button>
+               <div className="flex gap-2">
+                 <button 
+                   onClick={handleSuggestTags}
+                   disabled={isExtractingTags}
+                   className="text-xs flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 bg-indigo-50 rounded-full hover:bg-indigo-100 transition-colors disabled:opacity-50"
+                 >
+                   <Sparkles size={12} className={isExtractingTags ? "animate-spin" : ""} />
+                   {isExtractingTags ? "Searching..." : "Suggest Tags"}
+                 </button>
+                 <button 
+                   onClick={handleExtractKeywords}
+                   disabled={isExtractingKeywords}
+                   className="text-xs flex items-center gap-1.5 text-purple-600 hover:text-purple-700 font-medium px-2 py-1 bg-purple-50 rounded-full hover:bg-purple-100 transition-colors disabled:opacity-50"
+                 >
+                   <Sparkles size={12} className={isExtractingKeywords ? "animate-spin" : ""} />
+                   {isExtractingKeywords ? "Analyzing..." : "Potential Tags"}
+                 </button>
+               </div>
              </div>
+
+             {suggestedTags.length > 0 && (
+               <div className="mb-4">
+                 <p className="text-[10px] uppercase font-bold text-indigo-400 mb-2 tracking-wider">Suggested from existing:</p>
+                 <div className="flex flex-wrap gap-2">
+                   {suggestedTags.map((tag) => (
+                     <button
+                       key={tag.tagId}
+                       onClick={() => handleTagClick(tag.tagId)}
+                       className="px-3 py-1 rounded-full bg-white border border-indigo-200 text-indigo-700 text-xs font-medium hover:bg-indigo-50 hover:border-indigo-300 transition-all shadow-sm flex items-center gap-1"
+                     >
+                       <Plus size={10} /> {tag.name}
+                     </button>
+                   ))}
+                 </div>
+               </div>
+             )}
 
              {extractedKeywords.length > 0 && (
                <div className="mb-4">
-                 <p className="text-xs text-zinc-400 mb-2">Suggestions based on content:</p>
+                 <p className="text-[10px] uppercase font-bold text-purple-400 mb-2 tracking-wider">Potential new keywords:</p>
                  <div className="flex flex-wrap gap-2">
                    {extractedKeywords.map((kw) => (
                      <button
                        key={kw}
                        onClick={() => handleKeywordClick(kw)}
-                       className="px-3 py-1 rounded-full bg-white border border-indigo-200 text-indigo-700 text-xs font-medium hover:bg-indigo-50 hover:border-indigo-300 transition-all shadow-sm"
+                       className="px-3 py-1 rounded-full bg-white border border-purple-200 text-purple-700 text-xs font-medium hover:bg-purple-50 hover:border-purple-300 transition-all shadow-sm flex items-center gap-1"
                      >
-                       + {kw}
+                       <Plus size={10} /> {kw}
                      </button>
                    ))}
                  </div>

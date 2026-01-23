@@ -50,7 +50,8 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
   const [tagSuggestions, setTagSuggestions] = useState<SuggestionItem[]>([]);
   const [keywordSuggestions, setKeywordSuggestions] = useState<SuggestionItem[]>([]);
   const [isLoadingTags, setIsLoadingTags] = useState(false);
-  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isRegeneratingTags, setIsRegeneratingTags] = useState(false);
+  const [isRegeneratingKeywords, setIsRegeneratingKeywords] = useState(false);
   
   // Manage Tags Modal State
   const [isManageTagsOpen, setIsManageTagsOpen] = useState(false);
@@ -62,14 +63,14 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
   const [selectedKeywordNames, setSelectedKeywordNames] = useState<string[]>([]);
   const [isAddingSuggestions, setIsAddingSuggestions] = useState(false);
 
-  const fetchTagsAndSuggestions = async () => {
+  const fetchTagsAndSuggestions = async (mode: "tags" | "keywords" | "both" = "both") => {
     if (!content.id) return;
     setIsLoadingTags(true);
     let isMounted = true;
     try {
       const [tagsRes, suggestionsRes] = await Promise.all([
         api.get(`/content/${content.id}/tags`),
-        api.get(`/suggestions/content/${content.id}`),
+        api.get(`/suggestions/content/${content.id}?mode=${mode}`),
       ]);
       
       if (!isMounted) return;
@@ -82,11 +83,15 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
       }));
       setActiveTags(currentTags);
       
-      // Handle structured suggestions response: { existing: [], potential: [] }
+      // Handle structured suggestions response
       const { existing = [], potential = [] } = suggestionsRes.data || {};
       
-      setTagSuggestions(existing.map((s: any) => ({ ...s, id: s.tagId, type: "EXISTING" })));
-      setKeywordSuggestions(potential.map((p: any) => ({ ...p, name: p.keyword, type: "KEYWORD" })));
+      if (mode === "tags" || mode === "both") {
+        setTagSuggestions(existing.map((s: any) => ({ ...s, id: s.tagId, type: "EXISTING" })));
+      }
+      if (mode === "keywords" || mode === "both") {
+        setKeywordSuggestions(potential.map((p: any) => ({ ...p, name: p.keyword, type: "KEYWORD" })));
+      }
       
       // Initialize selected tags for the manager
       setSelectedTagIds(currentTags.map((t: TagItem) => t.id));
@@ -103,7 +108,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
 
   const handleOpenChange = (open: boolean) => {
     if (open) {
-      fetchTagsAndSuggestions();
+      fetchTagsAndSuggestions("both");
       setSelectedSuggestionIds([]);
       setSelectedKeywordNames([]);
     }
@@ -145,7 +150,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
       }
 
       await Promise.all(promises);
-      await fetchTagsAndSuggestions();
+      await fetchTagsAndSuggestions("both");
       setIsManageTagsOpen(false);
     } catch (error) {
       console.error("Failed to save tags:", error);
@@ -166,7 +171,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
     setIsAddingSuggestions(true);
     try {
       await api.post(`/content/${content.id}/potential`, { keywords: selectedKeywordNames });
-      await fetchTagsAndSuggestions();
+      await fetchTagsAndSuggestions("both");
       setSelectedKeywordNames([]);
     } catch (error) {
       console.error("Failed to add selected keywords:", error);
@@ -186,7 +191,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
     setIsAddingSuggestions(true);
     try {
       await api.post(`/content/${content.id}/tags`, { tagIds: selectedSuggestionIds });
-      await fetchTagsAndSuggestions(); // Full refresh
+      await fetchTagsAndSuggestions("both"); 
       setSelectedSuggestionIds([]);
     } catch (error) {
       console.error("Failed to add selected suggestions:", error);
@@ -195,21 +200,35 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
     }
   };
 
-  const handleRegenerateSuggestions = async () => {
-    setIsRegenerating(true);
+  const handleSuggestTags = async () => {
+    setIsRegeneratingTags(true);
     try {
-      const res = await api.post("/suggestions/generate", { contentId: content.id });
-      // The response is now { existing: [], potential: [] }
-      const { existing = [], potential = [] } = res.data || {};
+      const res = await api.post("/suggestions/generate", { contentId: content.id, mode: "tags" });
+      const { existing = [] } = res.data || {};
       setTagSuggestions(existing.map((s: any) => ({ ...s, id: s.tagId, type: "EXISTING" })));
-      setKeywordSuggestions(potential.map((p: any) => ({ ...p, name: p.keyword, type: "KEYWORD" })));
     } catch (error: any) {
-      console.error("Failed to generate suggestions:", error);
+      console.error("Failed to generate tags:", error);
       if (error.response?.status === 429) {
-        alert("AI rate limit exceeded. Please wait a minute before trying again.");
+        alert("AI rate limit exceeded for tags. Please wait a minute.");
       }
     } finally {
-      setIsRegenerating(false);
+      setIsRegeneratingTags(false);
+    }
+  };
+
+  const handleDiscoverPotential = async () => {
+    setIsRegeneratingKeywords(true);
+    try {
+      const res = await api.post("/suggestions/generate", { contentId: content.id, mode: "keywords" });
+      const { potential = [] } = res.data || {};
+      setKeywordSuggestions(potential.map((p: any) => ({ ...p, name: p.keyword, type: "KEYWORD" })));
+    } catch (error: any) {
+      console.error("Failed to discover keywords:", error);
+      if (error.response?.status === 429) {
+        alert("AI rate limit exceeded for potential tags. Please wait a minute.");
+      }
+    } finally {
+      setIsRegeneratingKeywords(false);
     }
   };
 
@@ -235,10 +254,8 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
         <SheetContent className="overflow-y-auto sm:max-w-2xl md:max-w-3xl">
           <SheetHeader className="mb-6">
             <SheetTitle className="text-2xl font-bold">{content.title}</SheetTitle>
-            <div className="flex flex-col gap-1">
-              <div className="text-sm text-zinc-500">
-                Created on {new Date(content.createdAt).toLocaleDateString()} • {content.contentType}
-              </div>
+            <div className="text-sm text-zinc-500">
+              Created on {new Date(content.createdAt).toLocaleDateString()} • {content.contentType}
             </div>
           </SheetHeader>
 
@@ -259,10 +276,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                 <Tag size={18} />
                 Active Tags
               </h3>
-              <button 
-                onClick={() => setIsManageTagsOpen(true)}
-                className="text-xs flex items-center gap-1 text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 hover:bg-indigo-50 rounded transition-colors"
-              >
+              <button onClick={() => setIsManageTagsOpen(true)} className="text-xs flex items-center gap-1 text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 hover:bg-indigo-50 rounded transition-colors">
                 <Settings2 size={14} />
                 Manage
               </button>
@@ -293,21 +307,24 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
               </h3>
               <div className="flex items-center gap-2">
                 {(selectedSuggestionIds.length > 0 || selectedKeywordNames.length > 0) && (
-                  <button 
-                    onClick={() => {
-                      if (selectedSuggestionIds.length > 0) handleAddSelectedSuggestions();
-                      if (selectedKeywordNames.length > 0) handleAddSelectedKeywords();
-                    }} 
-                    disabled={isAddingSuggestions} 
-                    className="text-xs flex items-center gap-1 bg-indigo-600 text-white hover:bg-indigo-700 font-medium px-3 py-1.5 rounded-full shadow-sm transition-all disabled:opacity-50"
-                  >
+                  <button onClick={() => {
+                    if (selectedSuggestionIds.length > 0) handleAddSelectedSuggestions();
+                    if (selectedKeywordNames.length > 0) handleAddSelectedKeywords();
+                  }} disabled={isAddingSuggestions} className="text-xs flex items-center gap-1 bg-indigo-600 text-white hover:bg-indigo-700 font-medium px-3 py-1.5 rounded-full shadow-sm transition-all disabled:opacity-50 mr-2">
                     {isAddingSuggestions ? "Adding..." : `Add Selected (${selectedSuggestionIds.length + selectedKeywordNames.length})`}
                     {!isAddingSuggestions && <Plus size={12} />}
                   </button>
                 )}
-                <button onClick={handleRegenerateSuggestions} disabled={isRegenerating || isLoadingTags} className="text-zinc-400 hover:text-indigo-600 transition-colors p-1.5 rounded-full hover:bg-indigo-50 disabled:opacity-50" title="Regenerate">
-                  <RotateCw size={14} className={isRegenerating ? "animate-spin" : ""} />
-                </button>
+                <div className="flex gap-1">
+                  <button onClick={handleSuggestTags} disabled={isRegeneratingTags || isLoadingTags} className="text-xs flex items-center gap-1.5 text-indigo-600 hover:bg-indigo-50 px-2 py-1.5 rounded-md transition-colors disabled:opacity-50" title="Suggest Existing Tags">
+                    <RotateCw size={12} className={isRegeneratingTags ? "animate-spin" : ""} />
+                    Suggest Tags
+                  </button>
+                  <button onClick={handleDiscoverPotential} disabled={isRegeneratingKeywords || isLoadingTags} className="text-xs flex items-center gap-1.5 text-purple-600 hover:bg-purple-50 px-2 py-1.5 rounded-md transition-colors disabled:opacity-50" title="Extract New Keywords">
+                    <Sparkles size={12} className={isRegeneratingKeywords ? "animate-spin" : ""} />
+                    Potential Tags
+                  </button>
+                </div>
               </div>
             </div>
             
@@ -321,15 +338,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                       {displayedTagSuggestions.map((tag) => {
                         const isSelected = selectedSuggestionIds.includes(tag.id!);
                         return (
-                          <button
-                            key={tag.id}
-                            onClick={() => toggleSuggestion(tag.id!)}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm transition-all ${
-                              isSelected 
-                                ? "bg-indigo-100 text-indigo-800 border-indigo-300 ring-1 ring-indigo-300" 
-                                : "bg-white text-indigo-700 border-indigo-200 hover:shadow-md hover:-translate-y-0.5"
-                            }`}
-                          >
+                          <button key={tag.id} onClick={() => toggleSuggestion(tag.id!)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm transition-all ${isSelected ? "bg-indigo-100 text-indigo-800 border-indigo-300 ring-1 ring-indigo-300" : "bg-white text-indigo-700 border-indigo-200 hover:shadow-md hover:-translate-y-0.5"}`}>
                             {isSelected && <Check size={12} className="text-indigo-600" />}
                             {tag.name}
                           </button>
@@ -347,15 +356,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                       {displayedKeywordSuggestions.map((kw) => {
                         const isSelected = selectedKeywordNames.includes(kw.name);
                         return (
-                          <button
-                            key={kw.name}
-                            onClick={() => handleKeywordClick(kw.name)}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm transition-all ${
-                              isSelected
-                                ? "bg-purple-100 text-purple-800 border-purple-300 ring-1 ring-purple-300"
-                                : "bg-white text-purple-700 border-purple-200 hover:shadow-md hover:border-purple-300 hover:bg-purple-50"
-                            }`}
-                          >
+                          <button key={kw.name} onClick={() => handleKeywordClick(kw.name)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm transition-all ${isSelected ? "bg-purple-100 text-purple-800 border-purple-300 ring-1 ring-purple-300" : "bg-white text-purple-700 border-purple-200 hover:shadow-md hover:border-purple-300 hover:bg-purple-50"}`}>
                             {isSelected ? <Check size={12} className="text-purple-600" /> : <Plus size={12} />}
                             {kw.name}
                           </button>
