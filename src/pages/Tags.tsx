@@ -128,8 +128,8 @@ const Tags: React.FC = () => {
   const canGoPrev = debouncedQuery ? offset > 0 : (offset > 0 || chunkStack.length > 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 px-1 sm:px-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold text-zinc-900">Tags</h1>
         <CreateTagModal onTagCreated={handleRefresh} />
       </div>
@@ -157,7 +157,7 @@ const Tags: React.FC = () => {
               <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-3">
                 <span className="text-red-600 font-bold">!</span>
               </div>
-              <p className="font-medium text-zinc-900">
+              <p className="font-medium text-zinc-900 px-4">
                 {(error as any).response?.status === 429 
                   ? "Rate limit exceeded. Please wait a moment." 
                   : "Failed to load tags. Please try again later."}
@@ -170,12 +170,12 @@ const Tags: React.FC = () => {
               </button>
             </div>
          ) : tags.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-zinc-500">
-                <div className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center mb-3">
+            <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 p-8 text-center">
+                <div className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center mb-3 mx-auto">
                   <TagIcon className="text-zinc-300" />
                 </div>
                 <p className="font-medium text-zinc-900">{debouncedQuery ? "No tags match your search." : "No tags found."}</p>
-                <p className="text-xs text-zinc-400 mt-1 max-w-xs text-center">
+                <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto text-center">
                   {debouncedQuery ? "Try a different search term or create a new tag." : "Tags allow you to organize your content semantically. Create one to get started."}
                 </p>
                 {!debouncedQuery && (
@@ -194,18 +194,18 @@ const Tags: React.FC = () => {
          ) : (
            <div className="flex-1 divide-y divide-zinc-50">
              {tags.map((tag: Tag) => (
-               <div key={tag.id} className="px-6 py-4 flex items-center justify-between hover:bg-zinc-50 transition-colors group">
-                 <div>
-                   <h3 className="text-sm font-medium text-zinc-900">{tag.name}</h3>
+               <div key={tag.id} className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-zinc-50 transition-colors group gap-4">
+                 <div className="min-w-0 flex-1">
+                   <h3 className="text-sm font-medium text-zinc-900 truncate">{tag.name}</h3>
                    {tag.semantic && (
-                     <p className="text-xs text-zinc-500 mt-0.5 line-clamp-1">{tag.semantic}</p>
+                     <p className="text-xs text-zinc-500 mt-0.5 line-clamp-1 italic">{tag.semantic}</p>
                    )}
                  </div>
-                 <div className="flex items-center gap-4">
-                   <span className="text-xs text-zinc-400 hidden sm:block">
+                 <div className="flex items-center justify-between sm:justify-end gap-4">
+                   <span className="text-[10px] text-zinc-400 font-mono">
                      {new Date(tag.createdAt).toLocaleDateString()}
                    </span>
-                   <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                   <div className="flex items-center gap-3 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                      <EditTagModal tag={tag} onTagUpdated={handleRefresh} />
                      <button 
                         onClick={() => handleDelete(tag.id)}
@@ -222,22 +222,22 @@ const Tags: React.FC = () => {
          
          {/* Pagination Footer */}
          {tags.length > 0 && (
-           <div className="border-t border-zinc-100 px-6 py-3 flex items-center justify-between bg-zinc-50/50">
-             <span className="text-xs text-zinc-500">
-                Showing {offset + 1}-{Math.min(offset + LIMIT, metadata?.chunkTotalItems || 0)} of {metadata?.chunkTotalItems || 0} {debouncedQuery ? "matches" : "in this segment"}
+           <div className="border-t border-zinc-100 px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-center justify-between bg-zinc-50/50 gap-3">
+             <span className="text-[10px] sm:text-xs text-zinc-500">
+                Showing {offset + 1}-{Math.min(offset + LIMIT, metadata?.chunkTotalItems || 0)} of {metadata?.chunkTotalItems || 0}
              </span>
              <div className="flex items-center gap-2">
                <button
                  onClick={handlePrev}
                  disabled={!canGoPrev || isLoading}
-                 className="p-1.5 rounded-md hover:bg-white hover:shadow-sm border border-transparent hover:border-zinc-200 disabled:opacity-30 disabled:pointer-events-none transition-all text-zinc-600"
+                 className="p-1.5 rounded-md bg-white shadow-sm border border-zinc-200 disabled:opacity-30 disabled:pointer-events-none transition-all text-zinc-600"
                >
                  <ChevronLeft size={16} />
                </button>
                <button
                  onClick={handleNext}
                  disabled={!canGoNext || isLoading}
-                 className="p-1.5 rounded-md hover:bg-white hover:shadow-sm border border-transparent hover:border-zinc-200 disabled:opacity-30 disabled:pointer-events-none transition-all text-zinc-600"
+                 className="p-1.5 rounded-md bg-white shadow-sm border border-zinc-200 disabled:opacity-30 disabled:pointer-events-none transition-all text-zinc-600"
                >
                  <ChevronRight size={16} />
                </button>

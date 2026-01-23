@@ -139,17 +139,17 @@ const Contents: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 px-1 sm:px-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold text-zinc-900">Contents</h1>
         <CreateContentModal onContentCreated={handleRefresh} />
       </div>
 
       {/* Filter Bar */}
-      <div className="flex items-center gap-3 bg-white p-2 rounded-lg border border-zinc-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-white p-2 rounded-lg border border-zinc-200 shadow-sm">
         <button 
           onClick={openFilterDialog}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+          className={`flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             isFiltering ? "bg-indigo-50 text-indigo-700 border border-indigo-100" : "bg-zinc-50 text-zinc-700 hover:bg-zinc-100 border border-zinc-100"
           }`}
         >
@@ -157,23 +157,23 @@ const Contents: React.FC = () => {
           {isFiltering ? `Filtered by ${activeFilterTagIds.length} tags` : "Filter by Tags"}
         </button>
 
-        {isFiltering && (
-          <button 
-            onClick={clearFilter}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs text-zinc-500 hover:text-red-600 transition-colors"
-          >
-            <X size={14} />
-            Clear Filter
-          </button>
-        )}
+        <div className="flex items-center justify-between sm:justify-start gap-3">
+          {isFiltering && (
+            <button 
+              onClick={clearFilter}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs text-zinc-500 hover:text-red-600 transition-colors"
+            >
+              <X size={14} />
+              Clear Filter
+            </button>
+          )}
 
-        <div className="flex-1" />
-        
-        {isFiltering && (
-          <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mr-2 animate-pulse">
-            Tag Filter Active
-          </span>
-        )}
+          {isFiltering && (
+            <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest sm:ml-auto animate-pulse">
+              Tag Filter Active
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Content List Container */}
@@ -187,7 +187,7 @@ const Contents: React.FC = () => {
             <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-3">
               <span className="text-red-600 font-bold">!</span>
             </div>
-            <p className="font-medium text-zinc-900">
+            <p className="font-medium text-zinc-900 px-4">
               {(error as any).response?.status === 429 
                 ? "Rate limit exceeded. Please wait a moment." 
                 : "Failed to load contents. Please try again later."}
@@ -200,8 +200,8 @@ const Contents: React.FC = () => {
             </button>
           </div>
         ) : contents.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-zinc-500">
-            <div className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center mb-3">
+          <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 p-8 text-center">
+            <div className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center mb-3 mx-auto">
               <FileText className="text-zinc-300" />
             </div>
             <p className="font-medium text-zinc-900">{isFiltering ? "No contents match these tags." : "No contents found."}</p>
@@ -225,16 +225,16 @@ const Contents: React.FC = () => {
         ) : (
           <div className="flex-1 divide-y divide-zinc-50">
             {contents.map((content: Content) => (
-              <div key={content.id} className="px-6 py-4 flex items-center justify-between hover:bg-zinc-50 transition-colors group">
-                <div className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded bg-indigo-50 flex items-center justify-center text-indigo-600">
+              <div key={content.id} className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-zinc-50 transition-colors group gap-4">
+                <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                  <div className="w-8 h-8 rounded bg-indigo-50 flex-shrink-0 flex items-center justify-center text-indigo-600 mt-0.5 sm:mt-0">
                     <FileText size={14} />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <ContentView 
                       content={content}
                       trigger={
-                        <p className="text-sm font-medium text-zinc-900 group-hover:text-indigo-600 transition-colors cursor-pointer hover:underline">
+                        <p className="text-sm font-medium text-zinc-900 group-hover:text-indigo-600 transition-colors cursor-pointer hover:underline truncate">
                           {content.title || "Untitled Content"}
                         </p>
                       }
@@ -244,11 +244,11 @@ const Contents: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="px-2 py-1 bg-zinc-100 text-zinc-600 rounded text-xs font-medium uppercase">
+                <div className="flex items-center justify-between sm:justify-end gap-4 sm:pl-0 pl-11">
+                  <span className="px-2 py-1 bg-zinc-100 text-zinc-600 rounded text-[10px] font-medium uppercase tracking-wider">
                     {content.contentType}
                   </span>
-                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-3 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                      <EditContentModal content={content} onContentUpdated={handleRefresh} />
                      <button 
                         onClick={() => handleDelete(content.id)}
@@ -265,22 +265,22 @@ const Contents: React.FC = () => {
 
         {/* Pagination Footer */}
         {contents.length > 0 && (
-           <div className="border-t border-zinc-100 px-6 py-3 flex items-center justify-between bg-zinc-50/50">
-             <span className="text-xs text-zinc-500">
-                Showing {offset + 1}-{Math.min(offset + LIMIT, metadata?.chunkTotalItems || 0)} of {metadata?.chunkTotalItems || 0} {isFiltering ? "matches" : "in this segment"}
+           <div className="border-t border-zinc-100 px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-center justify-between bg-zinc-50/50 gap-3">
+             <span className="text-[10px] sm:text-xs text-zinc-500">
+                Showing {offset + 1}-{Math.min(offset + LIMIT, metadata?.chunkTotalItems || 0)} of {metadata?.chunkTotalItems || 0} {isFiltering ? "matches" : "in segment"}
              </span>
              <div className="flex items-center gap-2">
                <button
                  onClick={handlePrev}
                  disabled={!canGoPrev || isLoading}
-                 className="p-1.5 rounded-md hover:bg-white hover:shadow-sm border border-transparent hover:border-zinc-200 disabled:opacity-30 disabled:pointer-events-none transition-all text-zinc-600"
+                 className="p-1.5 rounded-md bg-white shadow-sm border border-zinc-200 disabled:opacity-30 disabled:pointer-events-none transition-all text-zinc-600"
                >
                  <ChevronLeft size={16} />
                </button>
                <button
                  onClick={handleNext}
                  disabled={!canGoNext || isLoading}
-                 className="p-1.5 rounded-md hover:bg-white hover:shadow-sm border border-transparent hover:border-zinc-200 disabled:opacity-30 disabled:pointer-events-none transition-all text-zinc-600"
+                 className="p-1.5 rounded-md bg-white shadow-sm border border-zinc-200 disabled:opacity-30 disabled:pointer-events-none transition-all text-zinc-600"
                >
                  <ChevronRight size={16} />
                </button>
