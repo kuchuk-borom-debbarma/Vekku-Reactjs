@@ -63,6 +63,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
   const [selectedSuggestionIds, setSelectedSuggestionIds] = useState<string[]>([]);
   const [selectedKeywordNames, setSelectedKeywordNames] = useState<string[]>([]);
   const [isAddingSuggestions, setIsAddingSuggestions] = useState(false);
+  const [suggestionError, setSuggestionError] = useState<string | null>(null);
 
   const fetchTagsAndSuggestions = async (mode: "tags" | "keywords" | "both" = "both") => {
     if (!content.id) return;
