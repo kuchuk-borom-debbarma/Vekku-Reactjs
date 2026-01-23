@@ -243,8 +243,15 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
     .slice(0, 10);
     
   const displayedKeywordSuggestions = keywordSuggestions
-    .filter((k) => !activeTags.some((active) => active.name.toLowerCase() === k.name.toLowerCase()))
+    .filter((k) => {
+      if (!k.name || k.name.trim().length < 2) return false;
+      const lowerName = k.name.toLowerCase();
+      // Case-insensitive check against active tags
+      return !activeTags.some((active) => active.name.toLowerCase() === lowerName);
+    })
     .slice(0, 10);
+
+  const hasNoSuggestions = displayedTagSuggestions.length === 0 && displayedKeywordSuggestions.length === 0;
 
   return (
     <>
@@ -381,7 +388,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                 )}
 
 
-                {displayedTagSuggestions.length === 0 && displayedKeywordSuggestions.length === 0 && !isLoadingTags && (
+                {hasNoSuggestions && !isLoadingTags && !isRegeneratingTags && !isRegeneratingKeywords && (
                    <div className="text-center text-zinc-400 text-sm py-4 italic">No suggestions found.</div>
                 )}
               </div>
