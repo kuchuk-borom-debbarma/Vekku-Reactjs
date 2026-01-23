@@ -28,7 +28,7 @@ const CreateTagModal: React.FC<CreateTagModalProps> = ({ onTagCreated, trigger }
     setError("");
 
     try {
-      await api.post("/tag", { name, semantic });
+      await api.post("/tag", { tags: [{ name, semantic }] });
       setOpen(false);
       setName("");
       setSemantic("");
