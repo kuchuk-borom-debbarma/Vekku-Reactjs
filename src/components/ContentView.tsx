@@ -43,6 +43,7 @@ interface SuggestionItem {
   id?: string;
   name: string;
   score: string;
+  variants?: string[]; // Added variants
 }
 
 const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
@@ -170,6 +171,19 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
     setSelectedKeywordNames(prev => 
       prev.includes(keyword) ? prev.filter(k => k !== keyword) : [...prev, keyword]
     );
+  };
+
+  const swapKeywordVariant = (originalName: string, newName: string) => {
+    setKeywordSuggestions(prev => prev.map(s => {
+      if (s.name === originalName) {
+        const newVariants = [originalName, ...(s.variants || [])].filter(v => v !== newName);
+        return { ...s, name: newName, variants: newVariants };
+      }
+      return s;
+    }));
+    
+    // Also update selection if the original was selected
+    setSelectedKeywordNames(prev => prev.map(k => k === originalName ? newName : k));
   };
 
   const handleAddSelectedKeywords = async () => {
@@ -382,21 +396,38 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
 
                 {displayedKeywordSuggestions.length > 0 && (
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-purple-400 mb-2 tracking-wider">New Tag Suggestions</p>
-                    <div className="flex flex-wrap gap-2">
+                    <p className="text-[10px] uppercase font-bold text-purple-400 mb-3 tracking-wider">New Tag Suggestions</p>
+                    <div className="flex flex-wrap gap-3">
                       {displayedKeywordSuggestions.map((kw) => {
                         const isSelected = selectedKeywordNames.includes(kw.name);
                         return (
-                          <button key={kw.name} onClick={() => handleKeywordClick(kw.name)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all ${isSelected ? "bg-purple-100 text-purple-800 border-purple-300 ring-1 ring-purple-300" : "bg-white text-purple-700 border-indigo-200 hover:shadow-md hover:border-purple-300 hover:bg-purple-50"}`}>
-                            {isSelected ? <Check size={12} className="text-purple-600" /> : <Plus size={12} />}
-                            <span>{kw.name}</span>
-                            <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5" title={`Match Accuracy Distance: ${kw.score}`}>
-                              <div 
-                                className={`h-full transition-all ${isSelected ? "bg-white" : "bg-purple-500"}`} 
-                                style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(kw.score)) * 100))}%` }} 
-                              />
-                            </div>
-                          </button>
+                          <div key={kw.name} className="flex flex-col gap-1.5">
+                            <button onClick={() => handleKeywordClick(kw.name)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border shadow-sm transition-all ${isSelected ? "bg-purple-100 text-purple-800 border-purple-300 ring-1 ring-purple-300" : "bg-white text-purple-700 border-indigo-200 hover:shadow-md hover:border-purple-300 hover:bg-purple-50"}`}>
+                              {isSelected ? <Check size={12} className="text-purple-600" /> : <Plus size={12} />}
+                              <span>{kw.name}</span>
+                              <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5" title={`Match Accuracy Distance: ${kw.score}`}>
+                                <div 
+                                  className={`h-full transition-all ${isSelected ? "bg-white" : "bg-purple-500"}`} 
+                                  style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(kw.score)) * 100))}%` }} 
+                                />
+                              </div>
+                            </button>
+                            
+                            {/* Render Variants */}
+                            {kw.variants && kw.variants.length > 0 && (
+                              <div className="flex flex-wrap gap-1 px-1">
+                                {kw.variants.map(v => (
+                                  <button 
+                                    key={v} 
+                                    onClick={() => swapKeywordVariant(kw.name, v)}
+                                    className="text-[9px] text-zinc-400 hover:text-purple-600 hover:underline transition-colors px-1"
+                                  >
+                                    {v}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
                     </div>

@@ -30,7 +30,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   const [isExtractingTags, setIsExtractingTags] = useState(false);
   const [isExtractingKeywords, setIsExtractingKeywords] = useState(false);
   const [suggestedTags, setSuggestedTags] = useState<any[]>([]);
-  const [extractedKeywords, setExtractedKeywords] = useState<{keyword: string, score: string}[]>([]);
+  const [extractedKeywords, setExtractedKeywords] = useState<{keyword: string, score: string, variants: string[]}[]>([]);
   
   // Selection State (Local until save)
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
@@ -100,6 +100,19 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     setSelectedKeywords(prev => 
       prev.includes(keyword) ? prev.filter(k => k !== keyword) : [...prev, keyword]
     );
+  };
+
+  const swapKeywordVariant = (originalName: string, newName: string) => {
+    setExtractedKeywords(prev => prev.map(s => {
+      if (s.keyword === originalName) {
+        const newVariants = [originalName, ...(s.variants || [])].filter(v => v !== newName);
+        return { ...s, keyword: newName, variants: newVariants };
+      }
+      return s;
+    }));
+    
+    // Update selection if original was selected
+    setSelectedKeywords(prev => prev.map(k => k === originalName ? newName : k));
   };
 
   const handleTagClick = (tagId: string) => {
@@ -337,8 +350,8 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                 {/* Potential Keywords */}
                 {extractedKeywords.length > 0 && (
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-purple-400 mb-2 tracking-wider">New Tag Suggestions:</p>
-                    <div className="flex flex-wrap gap-2">
+                    <p className="text-[10px] uppercase font-bold text-purple-400 mb-3 tracking-wider">New Tag Suggestions:</p>
+                    <div className="flex flex-wrap gap-3">
                       {extractedKeywords
                         .filter(kw => {
                           if (!kw.keyword || kw.keyword.trim().length < 2) return false;
@@ -349,24 +362,40 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                         .map((kw) => {
                           const isSelected = selectedKeywords.includes(kw.keyword);
                           return (
-                            <button
-                              key={kw.keyword}
-                              onClick={() => handleKeywordClick(kw.keyword)}
-                              className={`px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all flex items-center gap-1.5 ${
-                                isSelected
-                                  ? "bg-purple-600 text-white border-purple-700"
-                                  : "bg-white text-purple-700 border-purple-200 hover:border-purple-300"
-                              }`}
-                            >
-                              {isSelected ? <Check size={12} /> : <Plus size={12} />}
-                              <span>{kw.keyword}</span>
-                              <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5" title={`Match Accuracy Distance: ${kw.score}`}>
-                                <div 
-                                  className={`h-full transition-all ${isSelected ? "bg-white" : "bg-purple-500"}`} 
-                                  style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(kw.score)) * 100))}%` }} 
-                                />
-                              </div>
-                            </button>
+                            <div key={kw.keyword} className="flex flex-col gap-1.5">
+                              <button
+                                onClick={() => handleKeywordClick(kw.keyword)}
+                                className={`px-3 py-1.5 rounded-full text-[11px] font-bold border shadow-sm transition-all flex items-center gap-1.5 ${
+                                  isSelected
+                                    ? "bg-purple-600 text-white border-purple-700"
+                                    : "bg-white text-purple-700 border-indigo-200 hover:border-indigo-300"
+                                }`}
+                              >
+                                {isSelected ? <Check size={12} /> : <Plus size={12} />}
+                                <span>{kw.keyword}</span>
+                                <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5" title={`Match Accuracy Distance: ${kw.score}`}>
+                                  <div 
+                                    className={`h-full transition-all ${isSelected ? "bg-white" : "bg-purple-500"}`} 
+                                    style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(kw.score)) * 100))}%` }} 
+                                  />
+                                </div>
+                              </button>
+
+                              {/* Render Variants List */}
+                              {kw.variants && kw.variants.length > 0 && (
+                                <div className="flex flex-wrap gap-1 px-1">
+                                  {kw.variants.map(v => (
+                                    <button 
+                                      key={v}
+                                      onClick={() => swapKeywordVariant(kw.keyword, v)}
+                                      className="text-[9px] text-zinc-400 hover:text-purple-600 hover:underline transition-colors px-1"
+                                    >
+                                      {v}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           );
                         })}
                     </div>
