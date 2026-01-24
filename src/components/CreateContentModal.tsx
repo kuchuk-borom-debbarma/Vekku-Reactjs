@@ -20,9 +20,9 @@ interface CreateContentModalProps {
 
 const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreated, trigger }) => {
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<"content" | "tags">("content");
+  const [step, setStep] = useState<"content" | "preview" | "tags">("content");
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [content, setContent] = useState(""); // Holds Body or YouTube URL
   const [description, setDescription] = useState(""); // For YouTube user description
   const [transcript, setTranscript] = useState(""); // For YouTube transcript
   const [isFetchingInfo, setIsFetchingInfo] = useState(false); // For loading state
@@ -62,61 +62,60 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   const handleNextStep = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Title is required for text content, but optional for YouTube (auto-fetched)
-    if (contentType !== "YOUTUBE_VIDEO" && !title) {
-        setError("Title is required.");
-        return;
-    }
-    if (!content) {
-        setError(contentType === "YOUTUBE_VIDEO" ? "YouTube URL is required." : "Body is required.");
-        return;
-    }
-
-    setError("");
-    
-    // Auto-fetch YouTube info if needed
-    let currentTitle = title;
-    let currentTranscript = transcript;
-
-    if (contentType === "YOUTUBE_VIDEO") {
-      setIsFetchingInfo(true);
-      try {
-        const res = await api.post("/content/youtube/preview", { url: content });
-        if (res.data) {
-          if (!title) {
-            setTitle(res.data.title);
-            currentTitle = res.data.title;
-          }
-          setTranscript(res.data.transcript);
-          currentTranscript = res.data.transcript;
-        }
-      } catch (err: any) {
-        console.error("Failed to fetch info:", err);
-        setSuggestionError("Warning: Could not fetch video details. Suggestions might be less accurate.");
-      } finally {
-        setIsFetchingInfo(false);
+    // Step 1: Content -> Preview (YouTube) or Tags (Text)
+    if (step === "content") {
+      if (contentType !== "YOUTUBE_VIDEO" && !title) {
+          setError("Title is required.");
+          return;
       }
+      if (!content) {
+          setError(contentType === "YOUTUBE_VIDEO" ? "YouTube URL is required." : "Body is required.");
+          return;
+      }
+
+      setError("");
+      
+      if (contentType === "YOUTUBE_VIDEO") {
+        setIsFetchingInfo(true);
+        try {
+          // Use /api/youtube/preview
+          const res = await api.post("/api/youtube/preview", { url: content });
+          if (res.data) {
+            if (!title) setTitle(res.data.title);
+            setTranscript(res.data.transcript);
+          }
+          setStep("preview");
+        } catch (err: any) {
+          console.error("Failed to fetch info:", err);
+          setError("Could not fetch video details. Please check the URL.");
+        } finally {
+          setIsFetchingInfo(false);
+        }
+      } else {
+        setStep("tags");
+        handleSuggestTags();
+        handleExtractKeywords();
+      }
+      return;
     }
 
-    setStep("tags");
-    
-    // Automatically trigger suggestions using the latest data
-    handleSuggestTags(currentTitle, currentTranscript);
-    handleExtractKeywords(currentTitle, currentTranscript);
+    // Step 2: Preview -> Tags
+    if (step === "preview") {
+      setStep("tags");
+      handleSuggestTags();
+      handleExtractKeywords();
+    }
   };
 
-  const handleSuggestTags = async (overrideTitle?: string, overrideTranscript?: string) => {
+  const handleSuggestTags = async () => {
     setIsExtractingTags(true);
     setSuggestionError("");
     
-    const t = overrideTitle || title;
-    const ts = overrideTranscript || transcript;
-
     // Prepare text for suggestion engine
     let textToAnalyze = content;
     if (contentType === "YOUTUBE_VIDEO") {
-        // Use full context (Title + Description + Transcript) for finding existing tags too
-        textToAnalyze = `${t}\n\n${description}\n\n${ts || ""}`;
+        // Use full context (Title + Description + Transcript)
+        textToAnalyze = `${title}\n\n${description}\n\n${transcript || ""}`;
     }
 
     try {
@@ -136,17 +135,14 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     }
   };
 
-  const handleExtractKeywords = async (overrideTitle?: string, overrideTranscript?: string) => {
+  const handleExtractKeywords = async () => {
     setIsExtractingKeywords(true);
     setSuggestionError("");
-
-    const t = overrideTitle || title;
-    const ts = overrideTranscript || transcript;
 
     // Prepare text for suggestion engine
     let textToAnalyze = content;
     if (contentType === "YOUTUBE_VIDEO") {
-        textToAnalyze = `${t}\n\n${description}\n\n${ts || ""}`;
+        textToAnalyze = `${title}\n\n${description}\n\n${transcript || ""}`;
     }
 
     try {
@@ -214,15 +210,15 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
       // 2. Create Content
       if (contentType === "YOUTUBE_VIDEO") {
-        await api.post("/content/youtube", {
+        await api.post("/api/content/youtube", {
           url: content, // Content state holds the URL
           title,
           description,
-          transcript, // Send the auto-fetched (and potentially user-edited if we added input) transcript
+          transcript,
           tagIds: finalTagIds,
         });
       } else {
-        await api.post("/content", {
+        await api.post("/api/content", {
           title,
           content,
           contentType,
@@ -256,7 +252,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {step === "content" ? "Step 1: Write Content" : "Step 2: Add Tags"}
+            {step === "content" ? "Step 1: Write Content" : step === "preview" ? "Step 2: Preview & Edit" : "Step 3: Add Tags"}
           </DialogTitle>
         </DialogHeader>
 
@@ -341,13 +337,6 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                     </div>
                   )}
                   
-                  {transcript && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 font-medium px-1">
-                      <Check size={12} />
-                      Transcript ready
-                    </div>
-                  )}
-                  
                   <div className="space-y-1">
                     <label htmlFor="description" className="text-sm font-medium text-zinc-900">
                       Description (Optional)
@@ -389,13 +378,48 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
               </button>
               <button
                 type="submit"
+                disabled={isFetchingInfo}
+                className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-zinc-800 transition-colors flex items-center gap-2"
+              >
+                {isFetchingInfo ? "Fetching..." : "Next"}
+                {!isFetchingInfo && <ArrowRight size={14} />}
+              </button>
+            </DialogFooter>
+          </form>
+        ) : step === "preview" ? (
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-900">Video Title</label>
+              <input
+                className="w-full px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-900">Transcript</label>
+              <textarea
+                className="w-full px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm min-h-[300px]"
+                value={transcript}
+                onChange={(e) => setTranscript(e.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <button
+                onClick={() => setStep("content")}
+                className="px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors mr-auto"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleNextStep}
                 className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-zinc-800 transition-colors flex items-center gap-2"
               >
                 Next: Select Tags
                 <ArrowRight size={14} />
               </button>
             </DialogFooter>
-          </form>
+          </div>
         ) : (
           <div className="space-y-4 py-4">
              <div className="flex items-center justify-between mb-2 gap-2">
@@ -450,7 +474,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                           >
                             {isSelected ? <Check size={12} /> : <Plus size={12} />}
                             {tag.name}
-                            <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5" title={`Match Accuracy Distance: ${tag.score}`}>
+                            <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5" title={`Match Accuracy Distance: ${tag.score}`}> 
                               <div 
                                 className={`h-full transition-all ${isSelected ? "bg-white" : "bg-indigo-500"}`}
                                 style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(tag.score)) * 100))}%` }}
@@ -491,7 +515,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                                 </div>
 
                                 {/* Score */}
-                                <div className="w-full h-1 bg-zinc-100 rounded-full overflow-hidden mb-3" title={`Match Accuracy Distance: ${kw.score}`}>
+                                <div className="w-full h-1 bg-zinc-100 rounded-full overflow-hidden mb-3" title={`Match Accuracy Distance: ${kw.score}`}> 
                                     <div 
                                         className={`h-full transition-all ${isSelected ? "bg-purple-500" : "bg-purple-300"}`}
                                         style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(kw.score)) * 100))}%` }}
@@ -538,7 +562,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
              <DialogFooter className="mt-6">
                <button
                  type="button"
-                 onClick={() => setStep("content")}
+                 onClick={() => setStep(contentType === "YOUTUBE_VIDEO" ? "preview" : "content")}
                  className="px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors mr-auto flex items-center gap-2"
                >
                  <ArrowLeft size={14} />
