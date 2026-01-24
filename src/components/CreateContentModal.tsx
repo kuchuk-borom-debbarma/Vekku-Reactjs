@@ -97,10 +97,10 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     setSuggestionError("");
     
     // Prepare text for suggestion engine
-    // For Existing Tags: Use only user-defined metadata (Title + Description) to keep matches relevant to high-level intent.
     let textToAnalyze = content;
     if (contentType === "YOUTUBE_VIDEO") {
-        textToAnalyze = `${title}\n\n${description}`;
+        // Use full context (Title + Description + Transcript) for finding existing tags too
+        textToAnalyze = `${title}\n\n${description}\n\n${transcript || ""}`;
     }
 
     try {
