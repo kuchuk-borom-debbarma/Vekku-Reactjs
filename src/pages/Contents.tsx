@@ -19,6 +19,7 @@ interface Content {
   title: string;
   body: string;
   contentType: string;
+  metadata?: any;
   createdAt: string;
   updatedAt: string;
 }

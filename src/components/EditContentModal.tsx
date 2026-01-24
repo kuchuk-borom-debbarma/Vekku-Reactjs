@@ -18,6 +18,7 @@ interface EditContentModalProps {
     title: string;
     body: string;
     contentType: string;
+    metadata?: any;
   };
   onContentUpdated: () => void;
   trigger?: React.ReactNode;
@@ -73,7 +74,7 @@ const EditContentModal: React.FC<EditContentModalProps> = ({ content: initialCon
         </DialogHeader>
 
         {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
+          <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm mb-4">
             {error}
           </div>
         )}
@@ -100,17 +101,19 @@ const EditContentModal: React.FC<EditContentModalProps> = ({ content: initialCon
               id="edit-content-type"
               value={contentType}
               onChange={(e) => setContentType(e.target.value)}
-              className="w-full px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm bg-white"
+              disabled={initialContent.contentType === "YOUTUBE_VIDEO"}
+              className="w-full px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm bg-white disabled:bg-zinc-50 disabled:text-zinc-500"
             >
               <option value="PLAIN_TEXT">Plain Text</option>
               <option value="MARKDOWN">Markdown</option>
+              <option value="YOUTUBE_VIDEO">YouTube Video</option>
             </select>
           </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label htmlFor="edit-body" className="text-sm font-medium text-zinc-900">
-                Body
+                {contentType === "YOUTUBE_VIDEO" ? "Transcript & Context" : "Body"}
               </label>
               {contentType === "MARKDOWN" && (
                 <div className="flex bg-zinc-100 rounded-md p-1">
