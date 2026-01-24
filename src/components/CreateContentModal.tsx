@@ -442,6 +442,11 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
         {step === "tags" && (
           <div className="space-y-4 py-2">
+             <div className="p-3 bg-zinc-50 border border-zinc-100 rounded-lg mb-2">
+                <p className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider mb-1">Tagging Content</p>
+                <h3 className="text-sm font-semibold text-zinc-900 truncate">{title || "Untitled Content"}</h3>
+             </div>
+
              <div className="flex items-center justify-between mb-2 gap-2">
                <div className="text-sm text-zinc-500 font-medium">Tag Recommendations</div>
                <div className="flex gap-2">
