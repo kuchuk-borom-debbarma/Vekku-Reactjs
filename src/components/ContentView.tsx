@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Tag, Sparkles, Plus, X, Settings2, Check, RotateCw } from "lucide-react";
+import { Tag, Sparkles, Plus, X, Settings2, Check, RotateCw, ExternalLink, Youtube } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import api from "@/lib/api";
@@ -26,6 +26,7 @@ interface ContentViewProps {
     title: string;
     body: string;
     contentType: string;
+    metadata?: any;
     createdAt: string;
   };
   trigger?: React.ReactNode;
@@ -305,7 +306,36 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
           </SheetHeader>
 
           <div className="mb-8">
-            {content.contentType === "MARKDOWN" ? (
+            {content.contentType === "YOUTUBE_VIDEO" ? (
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 p-4 bg-zinc-50 border border-zinc-100 rounded-xl group transition-all hover:bg-red-50/30 hover:border-red-100">
+                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 shrink-0 group-hover:scale-110 transition-transform">
+                    <Youtube size={20} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider mb-0.5">YouTube Link</p>
+                    <a 
+                      href={content.metadata?.youtubeUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 break-all flex items-center gap-1.5"
+                    >
+                      {content.metadata?.youtubeUrl}
+                      <ExternalLink size={12} />
+                    </a>
+                  </div>
+                </div>
+
+                {content.metadata?.userDescription && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">Description</p>
+                    <div className="text-zinc-800 text-sm leading-relaxed whitespace-pre-wrap font-sans bg-zinc-50/50 p-4 rounded-xl border border-zinc-100/50">
+                      {content.metadata.userDescription}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : content.contentType === "MARKDOWN" ? (
               <div className="prose prose-zinc max-w-none prose-sm sm:prose-base">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{content.body}</ReactMarkdown>
               </div>
