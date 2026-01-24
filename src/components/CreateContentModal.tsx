@@ -251,6 +251,8 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
         finalTagIds = [...finalTagIds, ...newTagIds];
       }
 
+      console.log("[CreateModal] Submitting with Tag IDs:", finalTagIds);
+
       if (contentType === "YOUTUBE_VIDEO") {
         await api.post("/content/youtube", {
           url: content,
