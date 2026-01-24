@@ -7,7 +7,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Check, ArrowRight, ArrowLeft, Sparkles } from "lucide-react";
+import { Plus, Check, ArrowRight, ArrowLeft, Sparkles, RotateCw } from "lucide-react";
 import api from "@/lib/api";
 import TagSelector from "@/components/TagSelector";
 import ReactMarkdown from "react-markdown";
@@ -24,6 +24,8 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [description, setDescription] = useState(""); // For YouTube user description
+  const [transcript, setTranscript] = useState(""); // For YouTube transcript
+  const [isFetchingInfo, setIsFetchingInfo] = useState(false); // For loading state
   const [contentType, setContentType] = useState("PLAIN_TEXT");
   const [view, setView] = useState<"write" | "preview">("write");
 
@@ -45,6 +47,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     setTitle("");
     setContent("");
     setDescription("");
+    setTranscript("");
     setContentType("PLAIN_TEXT");
     setView("write");
     setStep("content");
@@ -54,6 +57,25 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     setExtractedKeywords([]);
     setError("");
     setSuggestionError("");
+  };
+
+  const handleFetchYoutubeInfo = async () => {
+    if (!content) return;
+    setIsFetchingInfo(true);
+    setSuggestionError("");
+    try {
+      const res = await api.post("/content/youtube/preview", { url: content });
+      if (res.data) {
+        if (!title) setTitle(res.data.title);
+        setTranscript(res.data.transcript);
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch info:", err);
+      // We don't block user, just show warning if needed or ignore
+      // Maybe set a small inline error or just rely on manual entry
+    } finally {
+      setIsFetchingInfo(false);
+    }
   };
 
   const handleNextStep = (e: React.FormEvent) => {
@@ -73,8 +95,15 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   const handleSuggestTags = async () => {
     setIsExtractingTags(true);
     setSuggestionError("");
+    
+    // Prepare text for suggestion engine
+    let textToAnalyze = content;
+    if (contentType === "YOUTUBE_VIDEO") {
+        textToAnalyze = `${title}\n\n${description}\n\n${transcript || ""}`;
+    }
+
     try {
-      const res = await api.post("/suggestions/generate", { text: content, mode: "tags" });
+      const res = await api.post("/suggestions/generate", { text: textToAnalyze, mode: "tags" });
       setSuggestedTags(res.data.existing || []);
       setExtractedKeywords(res.data.potential || []);
     } catch (err: any) {
@@ -93,8 +122,15 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   const handleExtractKeywords = async () => {
     setIsExtractingKeywords(true);
     setSuggestionError("");
+
+    // Prepare text for suggestion engine
+    let textToAnalyze = content;
+    if (contentType === "YOUTUBE_VIDEO") {
+        textToAnalyze = `${title}\n\n${description}\n\n${transcript || ""}`;
+    }
+
     try {
-      const res = await api.post("/suggestions/generate", { text: content, mode: "keywords" });
+      const res = await api.post("/suggestions/generate", { text: textToAnalyze, mode: "keywords" });
       setExtractedKeywords(res.data.potential || []);
       setSuggestedTags(res.data.existing || []);
     } catch (err: any) {
@@ -272,14 +308,31 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
               
               {contentType === "YOUTUBE_VIDEO" ? (
                 <div className="space-y-3">
-                  <input
-                    id="content" // reusing content state for URL
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    className="w-full px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm"
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      id="content" // reusing content state for URL
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      className="flex-1 px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm"
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={handleFetchYoutubeInfo}
+                      disabled={isFetchingInfo || !content}
+                      className="px-3 py-2 bg-zinc-100 text-zinc-700 rounded-md hover:bg-zinc-200 transition-colors disabled:opacity-50 text-xs font-medium flex items-center gap-1.5 min-w-[80px] justify-center"
+                    >
+                      {isFetchingInfo ? <RotateCw size={14} className="animate-spin" /> : "Fetch Info"}
+                    </button>
+                  </div>
+                  
+                  {transcript && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 font-medium px-1">
+                      <Check size={12} />
+                      Transcript loaded
+                    </div>
+                  )}
                   
                   <div className="space-y-1">
                     <label htmlFor="description" className="text-sm font-medium text-zinc-900">
