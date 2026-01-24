@@ -78,18 +78,18 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
       if (contentType === "YOUTUBE_VIDEO") {
         setIsFetchingInfo(true);
         try {
-          // Use /api/youtube/preview
           const res = await api.post("/api/youtube/preview", { url: content });
           if (res.data) {
             if (!title) setTitle(res.data.title);
             setTranscript(res.data.transcript);
           }
-          setStep("preview");
         } catch (err: any) {
           console.error("Failed to fetch info:", err);
-          setError("Could not fetch video details. Please check the URL.");
+          // Don't set a blocking error, just warn or let user fill manually
+          // setSuggestionError("Could not auto-fetch details. Please enter manually.");
         } finally {
           setIsFetchingInfo(false);
+          setStep("preview");
         }
       } else {
         setStep("tags");
