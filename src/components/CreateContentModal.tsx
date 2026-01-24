@@ -23,6 +23,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   const [step, setStep] = useState<"content" | "tags">("content");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [description, setDescription] = useState(""); // For YouTube user description
   const [contentType, setContentType] = useState("PLAIN_TEXT");
   const [view, setView] = useState<"write" | "preview">("write");
 
@@ -43,6 +44,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   const resetState = () => {
     setTitle("");
     setContent("");
+    setDescription("");
     setContentType("PLAIN_TEXT");
     setView("write");
     setStep("content");
@@ -154,13 +156,22 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
         finalTagIds = [...finalTagIds, ...newTagIds];
       }
 
-      // 2. Create Content with all tag IDs
-      await api.post("/content", {
-        title,
-        content,
-        contentType,
-        tagIds: finalTagIds,
-      });
+      // 2. Create Content
+      if (contentType === "YOUTUBE_VIDEO") {
+        await api.post("/content/youtube", {
+          url: content, // Content state holds the URL
+          title,
+          description,
+          tagIds: finalTagIds,
+        });
+      } else {
+        await api.post("/content", {
+          title,
+          content,
+          contentType,
+          tagIds: finalTagIds,
+        });
+      }
 
       onContentCreated();
       setOpen(false);
@@ -226,13 +237,14 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
               >
                 <option value="PLAIN_TEXT">Plain Text</option>
                 <option value="MARKDOWN">Markdown</option>
+                <option value="YOUTUBE_VIDEO">YouTube Video</option>
               </select>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label htmlFor="content" className="text-sm font-medium text-zinc-900">
-                  Body
+                  {contentType === "YOUTUBE_VIDEO" ? "YouTube URL" : "Body"}
                 </label>
                 {contentType === "MARKDOWN" && (
                   <div className="flex bg-zinc-100 rounded-md p-1">
@@ -258,7 +270,31 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                 )}
               </div>
               
-              {contentType === "MARKDOWN" && view === "preview" ? (
+              {contentType === "YOUTUBE_VIDEO" ? (
+                <div className="space-y-3">
+                  <input
+                    id="content" // reusing content state for URL
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm"
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    required
+                  />
+                  
+                  <div className="space-y-1">
+                    <label htmlFor="description" className="text-sm font-medium text-zinc-900">
+                      Description (Optional)
+                    </label>
+                    <textarea
+                      id="description"
+                      placeholder="Add a personal note or description..."
+                      className="w-full px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm min-h-[100px]"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                    />
+                  </div>
+                </div>
+              ) : contentType === "MARKDOWN" && view === "preview" ? (
                 <div className="w-full px-4 py-3 border border-zinc-200 rounded-md bg-zinc-50 min-h-[300px] prose prose-sm max-w-none overflow-y-auto">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {content || "*Nothing to preview*"}
