@@ -87,8 +87,8 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
             return;
         }
         
-        // Open helper site in new tab
-        window.open(`https://www.youtube-transcript.io/videos/${videoId}`, "_blank");
+        // Open helper site in new tab (Tactiq is robust and free)
+        window.open(`https://tactiq.io/tools/run/youtube_transcript?yt=${encodeURIComponent(content)}`, "_blank");
         
         setStep("preview");
       } else {
@@ -350,7 +350,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                 <ExternalLink size={18} className="shrink-0 mt-0.5" />
                 <div>
                     <p className="font-bold mb-1">A tab has been opened to fetch the transcript.</p>
-                    <p>Please copy the transcript from <strong>youtube-transcript.io</strong> and paste it below. You can also refine the title.</p>
+                    <p>Please copy the transcript from <strong>Tactiq</strong> and paste it below. You can also refine the title.</p>
                 </div>
             </div>
             
