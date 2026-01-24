@@ -346,11 +346,36 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
         {step === "preview" && (
           <div className="space-y-4 py-2">
-            <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg text-blue-800 text-sm flex gap-3">
-                <ExternalLink size={18} className="shrink-0 mt-0.5" />
-                <div>
-                    <p className="font-bold mb-1">A tab has been opened to fetch the transcript.</p>
-                    <p>Please copy the transcript from <strong>Tactiq</strong> and paste it below. You can also refine the title.</p>
+            <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg text-blue-800 text-sm">
+                <div className="flex gap-3 mb-3">
+                    <ExternalLink size={18} className="shrink-0 mt-0.5" />
+                    <div>
+                        <p className="font-bold mb-1">Transcript Tools</p>
+                        <p>A tool has been opened in a new tab. If it didn't work, try these alternatives to copy the transcript:</p>
+                    </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    <button 
+                        onClick={() => window.open(`https://tactiq.io/tools/run/youtube_transcript?yt=${encodeURIComponent(content)}`, "_blank")}
+                        className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-bold hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+                    >
+                        Tactiq (Primary)
+                    </button>
+                    <button 
+                        onClick={() => {
+                            const videoId = extractVideoId(content);
+                            if (videoId) window.open(`https://www.youtube-transcript.io/videos/${videoId}`, "_blank");
+                        }}
+                        className="px-3 py-1.5 bg-white text-blue-600 border border-blue-200 rounded text-xs font-bold hover:bg-blue-50 transition-colors"
+                    >
+                        YouTube-Transcript.io
+                    </button>
+                    <button 
+                        onClick={() => window.open(`https://summarize.tech/${content}`, "_blank")}
+                        className="px-3 py-1.5 bg-white text-blue-600 border border-blue-200 rounded text-xs font-bold hover:bg-blue-50 transition-colors"
+                    >
+                        Summarize.tech
+                    </button>
                 </div>
             </div>
             
