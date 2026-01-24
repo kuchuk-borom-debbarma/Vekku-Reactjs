@@ -43,6 +43,41 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   const [error, setError] = useState("");
   const [suggestionError, setSuggestionError] = useState("");
 
+  // Auto-fetch YouTube title when URL is pasted
+  React.useEffect(() => {
+    const fetchTitle = async () => {
+      if (contentType !== "YOUTUBE_VIDEO" || !content) return;
+      
+      const videoId = extractVideoId(content);
+      if (!videoId) return;
+
+      setIsFetchingInfo(true);
+      try {
+        // Try direct browser fetch first (CORS supported by YouTube OEmbed)
+        const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(content)}&format=json`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.title && !title) {
+            setTitle(data.title);
+          }
+        } else {
+          // Fallback to backend if direct fetch fails
+          const res = await api.post("/youtube/info", { url: content });
+          if (res.data?.title && !title) {
+            setTitle(res.data.title);
+          }
+        }
+      } catch (err) {
+        console.warn("Auto-fetch title failed:", err);
+      } finally {
+        setIsFetchingInfo(false);
+      }
+    };
+
+    const timer = setTimeout(fetchTitle, 500); // Debounce
+    return () => clearTimeout(timer);
+  }, [content, contentType]);
+
   const resetState = () => {
     setTitle("");
     setContent("");
