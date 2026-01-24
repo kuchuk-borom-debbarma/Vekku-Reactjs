@@ -203,6 +203,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
   };
 
   const toggleSuggestion = (tagId: string) => {
+    console.log("[ContentView] Toggling suggestion:", tagId);
     setSelectedSuggestionIds(prev => 
       prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
     );
@@ -422,13 +423,13 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                       {displayedTagSuggestions.map((tag) => {
                         const isSelected = selectedSuggestionIds.includes(tag.id!);
                         return (
-                          <button key={tag.id} onClick={() => toggleSuggestion(tag.id!)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all ${isSelected ? "bg-indigo-600 text-white border-indigo-700" : "bg-white text-indigo-700 border-indigo-200 hover:shadow-md hover:-translate-y-0.5"}`}>
+                          <button key={tag.id} onClick={() => toggleSuggestion(tag.id!)} className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all ${isSelected ? "bg-indigo-600 text-white border-indigo-700" : "bg-white text-indigo-700 border-indigo-200 hover:shadow-md hover:-translate-y-0.5"}`}>
                             {isSelected && <Check size={12} className="text-indigo-600" />}
                             {tag.name}
-                            <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5" title={`Match Accuracy Distance: ${tag.score}`}>
+                            <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5 pointer-events-none" title={`Match Similarity: ${tag.score}`}>
                               <div 
                                 className={`h-full transition-all ${isSelected ? "bg-white" : "bg-indigo-500"}`} 
-                                style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(tag.score)) * 100))}%` }} 
+                                style={{ width: `${Math.max(10, Math.min(100, parseFloat(tag.score) * 100))}%` }} 
                               />
                             </div>
                           </button>
@@ -458,10 +459,10 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                             </div>
 
                             {/* Score Bar */}
-                            <div className="w-full h-1 bg-zinc-100 rounded-full overflow-hidden mb-3" title={`Match Accuracy Distance: ${kw.score}`}>
+                            <div className="w-full h-1 bg-zinc-100 rounded-full overflow-hidden mb-3 pointer-events-none" title={`Match Similarity: ${kw.score}`}>
                                 <div 
                                   className={`h-full transition-all ${isSelected ? "bg-purple-500" : "bg-purple-300"}`} 
-                                  style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(kw.score)) * 100))}%` }} 
+                                  style={{ width: `${Math.max(10, Math.min(100, parseFloat(kw.score) * 100))}%` }} 
                                 />
                             </div>
                             

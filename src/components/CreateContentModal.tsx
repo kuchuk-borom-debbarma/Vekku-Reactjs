@@ -215,12 +215,14 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   };
 
   const handleTagClick = (tagId: string) => {
+    console.log("[CreateModal] Toggling tag:", tagId);
     setSelectedTagIds(prev => 
       prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
     );
   };
 
   const toggleTag = (tagId: string) => {
+    console.log("[CreateModal] Toggling tag from selector:", tagId);
     setSelectedTagIds((prev) =>
       prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId],
     );
@@ -496,14 +498,15 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                         return (
                           <button 
                             key={tag.tagId} 
+                            type="button"
                             onClick={() => handleTagClick(tag.tagId)} 
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all flex items-center gap-1.5 ${isSelected ? "bg-indigo-600 text-white border-indigo-700" : "bg-white text-indigo-700 border-indigo-200 hover:border-indigo-300"}`}
+                            className={`relative px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all flex items-center gap-1.5 ${isSelected ? "bg-indigo-600 text-white border-indigo-700" : "bg-white text-indigo-700 border-indigo-200 hover:border-indigo-300"}`}
                           >
                             {isSelected ? <Check size={12} /> : <Plus size={12} />} {tag.name}
-                            <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5">
+                            <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5 pointer-events-none">
                               <div 
-                                className={`h-full transition-all ${isSelected ? "bg-white" : "bg-indigo-500"}`}
-                                style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(tag.score)) * 100))}%` }}
+                                className={`h-full transition-all ${isSelected ? "bg-white" : "bg-indigo-500"}`} 
+                                style={{ width: `${Math.max(10, Math.min(100, parseFloat(tag.score) * 100))}%` }} 
                               />
                             </div>
                           </button>
@@ -531,8 +534,8 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                                 {isSelected ? <Check size={10} /> : <Plus size={12} />}
                               </button>
                             </div>
-                            <div className="w-full h-1 bg-zinc-100 rounded-full overflow-hidden mb-3">
-                              <div className={`h-full transition-all ${isSelected ? "bg-purple-500" : "bg-purple-300"}`} style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(kw.score)) * 100))}%` }} />
+                            <div className="w-full h-1 bg-zinc-100 rounded-full overflow-hidden mb-3 pointer-events-none">
+                              <div className={`h-full transition-all ${isSelected ? "bg-purple-500" : "bg-purple-300"}`} style={{ width: `${Math.max(10, Math.min(100, parseFloat(kw.score) * 100))}%` }} />
                             </div>
                             {kw.variants && kw.variants.length > 0 && (
                               <div className="mt-auto pt-2 border-t border-dashed border-zinc-100">
