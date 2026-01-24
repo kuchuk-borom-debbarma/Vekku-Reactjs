@@ -7,7 +7,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Check, ArrowRight, ArrowLeft, Sparkles, ExternalLink } from "lucide-react";
+import { Plus, Check, ArrowRight, ArrowLeft, Sparkles, ExternalLink, RotateCw } from "lucide-react";
 import api from "@/lib/api";
 import TagSelector from "@/components/TagSelector";
 import ReactMarkdown from "react-markdown";
@@ -25,6 +25,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   const [content, setContent] = useState(""); // Holds Body or YouTube URL
   const [description, setDescription] = useState(""); // For YouTube user description
   const [transcript, setTranscript] = useState(""); // For YouTube transcript
+  const [isFetchingInfo, setIsFetchingInfo] = useState(false);
   const [contentType, setContentType] = useState("PLAIN_TEXT");
   const [view, setView] = useState<"write" | "preview">("write");
 
@@ -86,8 +87,22 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
             setError("Invalid YouTube URL.");
             return;
         }
+
+        setIsFetchingInfo(true);
+        try {
+          // Fetch basic metadata (Title)
+          const res = await api.post("/youtube/info", { url: content });
+          if (res.data?.title && !title) {
+            setTitle(res.data.title);
+          }
+        } catch (err) {
+          console.warn("Failed to fetch youtube info:", err);
+          // Don't block the user if metadata fetch fails
+        } finally {
+          setIsFetchingInfo(false);
+        }
         
-        // Open helper site in new tab (Tactiq is robust and free)
+        // Open helper sites in new tabs
         window.open(`https://tactiq.io/tools/run/youtube_transcript?yt=${encodeURIComponent(content)}`, "_blank");
         
         setStep("preview");
@@ -339,7 +354,23 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
             <DialogFooter>
               <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors">Cancel</button>
-              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-zinc-800 transition-colors flex items-center gap-2">Next <ArrowRight size={14} /></button>
+              <button 
+                type="submit" 
+                disabled={isFetchingInfo}
+                className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-zinc-800 transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                {isFetchingInfo ? (
+                  <>
+                    <RotateCw size={14} className="animate-spin" />
+                    Fetching...
+                  </>
+                ) : (
+                  <>
+                    Next
+                    <ArrowRight size={14} />
+                  </>
+                )}
+              </button>
             </DialogFooter>
           </form>
         )}
