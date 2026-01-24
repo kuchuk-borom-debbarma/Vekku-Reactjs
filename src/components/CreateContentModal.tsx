@@ -60,9 +60,9 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   };
 
   const handleNextStep = async (e: React.FormEvent) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     
-    // Step 1: Content -> Preview (YouTube) or Tags (Text)
+    // --- Step 1: Content -> Next ---
     if (step === "content") {
       if (contentType !== "YOUTUBE_VIDEO" && !title) {
           setError("Title is required.");
@@ -80,18 +80,19 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
         try {
           const res = await api.post("/youtube/preview", { url: content });
           if (res.data) {
+            // Auto-fill title if the user hasn't provided one yet
             if (!title) setTitle(res.data.title);
-            setTranscript(res.data.transcript);
+            setTranscript(res.data.transcript || "");
           }
         } catch (err: any) {
           console.error("Failed to fetch info:", err);
-          // Don't set a blocking error, just warn or let user fill manually
-          // setSuggestionError("Could not auto-fetch details. Please enter manually.");
+          // We proceed to preview anyway so user can enter manually
         } finally {
           setIsFetchingInfo(false);
-          setStep("preview");
+          setStep("preview"); // Force switch to preview step
         }
       } else {
+        // Text/Markdown content goes straight to tags
         setStep("tags");
         handleSuggestTags();
         handleExtractKeywords();
@@ -99,11 +100,13 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
       return;
     }
 
-    // Step 2: Preview -> Tags
+    // --- Step 2: Preview -> Tags ---
     if (step === "preview") {
       setStep("tags");
+      // Trigger suggestions using the possibly edited title/transcript
       handleSuggestTags();
       handleExtractKeywords();
+      return;
     }
   };
 
@@ -111,10 +114,9 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     setIsExtractingTags(true);
     setSuggestionError("");
     
-    // Prepare text for suggestion engine
     let textToAnalyze = content;
     if (contentType === "YOUTUBE_VIDEO") {
-        // Use full context (Title + Description + Transcript)
+        // Use the context from the preview step (User-edited Title + Description + Transcript)
         textToAnalyze = `${title}\n\n${description}\n\n${transcript || ""}`;
     }
 
@@ -139,7 +141,6 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     setIsExtractingKeywords(true);
     setSuggestionError("");
 
-    // Prepare text for suggestion engine
     let textToAnalyze = content;
     if (contentType === "YOUTUBE_VIDEO") {
         textToAnalyze = `${title}\n\n${description}\n\n${transcript || ""}`;
@@ -176,8 +177,6 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
       }
       return s;
     }));
-    
-    // Update selection if original was selected
     setSelectedKeywords(prev => prev.map(k => k === originalName ? newName : k));
   };
 
@@ -199,7 +198,6 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     try {
       let finalTagIds = [...selectedTagIds];
 
-      // 1. If there are selected keywords, create them as tags first
       if (selectedKeywords.length > 0) {
         const createTagsRes = await api.post("/tag", { 
           tags: selectedKeywords.map(kw => ({ name: kw, semantic: kw })) 
@@ -208,10 +206,9 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
         finalTagIds = [...finalTagIds, ...newTagIds];
       }
 
-      // 2. Create Content
       if (contentType === "YOUTUBE_VIDEO") {
         await api.post("/content/youtube", {
-          url: content, // Content state holds the URL
+          url: content,
           title,
           description,
           transcript,
@@ -257,16 +254,17 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
         </DialogHeader>
 
         {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
+          <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm mb-4">
             {error}
           </div>
         )}
 
-        {step === "content" ? (
-          <form onSubmit={handleNextStep} className="space-y-4 py-4">
+        {/* Step 1: Content Input */}
+        {step === "content" && (
+          <form onSubmit={handleNextStep} className="space-y-4 py-2">
             <div className="space-y-2">
               <label htmlFor="title" className="text-sm font-medium text-zinc-900">
-                Title
+                Title {contentType === "YOUTUBE_VIDEO" && "(Optional - auto-filled)"}
               </label>
               <input
                 id="title"
@@ -321,22 +319,14 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
               
               {contentType === "YOUTUBE_VIDEO" ? (
                 <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <input
-                      id="content" // reusing content state for URL
-                      placeholder="https://www.youtube.com/watch?v=..."
-                      className="flex-1 px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm"
-                      value={content}
-                      onChange={(e) => setContent(e.target.value)}
-                      required
-                    />
-                  </div>
-                  {isFetchingInfo && (
-                    <div className="text-xs text-zinc-500 flex items-center gap-2">
-                      <RotateCw size={12} className="animate-spin" /> Fetching details...
-                    </div>
-                  )}
-                  
+                  <input
+                    id="content"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    className="w-full px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm"
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    required
+                  />
                   <div className="space-y-1">
                     <label htmlFor="description" className="text-sm font-medium text-zinc-900">
                       Description (Optional)
@@ -369,25 +359,22 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
             </div>
 
             <DialogFooter>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors"
-              >
-                Cancel
-              </button>
+              <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors">Cancel</button>
               <button
                 type="submit"
                 disabled={isFetchingInfo}
-                className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-zinc-800 transition-colors flex items-center gap-2"
+                className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-zinc-800 transition-colors flex items-center gap-2 disabled:opacity-50"
               >
-                {isFetchingInfo ? "Fetching..." : "Next"}
+                {isFetchingInfo ? <RotateCw size={14} className="animate-spin" /> : "Next"}
                 {!isFetchingInfo && <ArrowRight size={14} />}
               </button>
             </DialogFooter>
           </form>
-        ) : step === "preview" ? (
-          <div className="space-y-4 py-4">
+        )}
+
+        {/* Step 2: Preview & Edit (YouTube only) */}
+        {step === "preview" && (
+          <div className="space-y-4 py-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-900">Video Title</label>
               <input
@@ -402,64 +389,40 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                 className="w-full px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm min-h-[300px]"
                 value={transcript}
                 onChange={(e) => setTranscript(e.target.value)}
+                placeholder="No transcript fetched. You can paste one here..."
               />
             </div>
             <DialogFooter>
-              <button
-                onClick={() => setStep("content")}
-                className="px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors mr-auto"
-              >
-                Back
+              <button onClick={() => setStep("content")} className="px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors mr-auto flex items-center gap-2">
+                <ArrowLeft size={14} /> Back
               </button>
-              <button
-                onClick={handleNextStep}
-                className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-zinc-800 transition-colors flex items-center gap-2"
-              >
-                Next: Select Tags
-                <ArrowRight size={14} />
+              <button onClick={() => handleNextStep(null as any)} className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-zinc-800 transition-colors flex items-center gap-2">
+                Next: Select Tags <ArrowRight size={14} />
               </button>
             </DialogFooter>
           </div>
-        ) : (
-          <div className="space-y-4 py-4">
+        )}
+
+        {/* Step 3: Add Tags */}
+        {step === "tags" && (
+          <div className="space-y-4 py-2">
              <div className="flex items-center justify-between mb-2 gap-2">
-               <div className="text-sm text-zinc-500 font-medium">
-                 Tag Recommendations
-               </div>
+               <div className="text-sm text-zinc-500 font-medium">Tag Recommendations</div>
                <div className="flex gap-2">
-                 <button 
-                   onClick={() => handleSuggestTags()}
-                   disabled={isExtractingTags}
-                   className="text-xs flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 bg-indigo-50 rounded-full hover:bg-indigo-100 transition-colors disabled:opacity-50"
-                 >
-                   <Sparkles size={12} className={isExtractingTags ? "animate-spin" : ""} />
-                   Find Existing
+                 <button onClick={() => handleSuggestTags()} disabled={isExtractingTags} className="text-xs flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 bg-indigo-50 rounded-full hover:bg-indigo-100 transition-colors disabled:opacity-50">
+                   <Sparkles size={12} className={isExtractingTags ? "animate-spin" : ""} /> Find Existing
                  </button>
-                 <button 
-                   onClick={() => handleExtractKeywords()}
-                   disabled={isExtractingKeywords}
-                   className="text-xs flex items-center gap-1.5 text-purple-600 hover:text-purple-700 font-medium px-2 py-1 bg-purple-50 rounded-full hover:bg-purple-100 transition-colors disabled:opacity-50"
-                 >
-                   <Sparkles size={12} className={isExtractingKeywords ? "animate-spin" : ""} />
-                   Discover New
+                 <button onClick={() => handleExtractKeywords()} disabled={isExtractingKeywords} className="text-xs flex items-center gap-1.5 text-purple-600 hover:text-purple-700 font-medium px-2 py-1 bg-purple-50 rounded-full hover:bg-purple-100 transition-colors disabled:opacity-50">
+                   <Sparkles size={12} className={isExtractingKeywords ? "animate-spin" : ""} /> Discover New
                  </button>
                </div>
              </div>
 
-             {/* Combined Suggestion Area */}
              <div className="bg-zinc-50/50 rounded-xl p-4 border border-zinc-100 space-y-4 min-h-[100px]">
-                {suggestionError && (
-                  <div className="mb-2 p-2 bg-red-50 text-red-600 text-xs rounded border border-red-100">
-                    {suggestionError}
-                  </div>
-                )}
-                {(suggestedTags.length > 0 || extractedKeywords.length > 0) && (
-                  <p className="text-[10px] text-zinc-400 font-medium italic border-b border-zinc-100 pb-2 mb-2">
-                    Note: A more filled bar indicates a higher semantic match accuracy.
-                  </p>
-                )}
+                {suggestionError && <div className="mb-2 p-2 bg-red-50 text-red-600 text-xs rounded border border-red-100">{suggestionError}</div>}
+                {(suggestedTags.length > 0 || extractedKeywords.length > 0) && <p className="text-[10px] text-zinc-400 font-medium italic border-b border-zinc-100 pb-2 mb-2">Note: A more filled bar indicates a higher semantic match accuracy.</p>}
 
-                {/* Matched Tags */}
+                {/* Suggested Tags Rendering */}
                 {suggestedTags.length > 0 && (
                   <div>
                     <p className="text-[10px] uppercase font-bold text-indigo-400 mb-2 tracking-wider">Suggested Existing Tags:</p>
@@ -467,18 +430,10 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                       {suggestedTags.map((tag) => {
                         const isSelected = selectedTagIds.includes(tag.tagId);
                         return (
-                          <button
-                            key={tag.tagId}
-                            onClick={() => handleTagClick(tag.tagId)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all flex items-center gap-1.5 ${isSelected ? "bg-indigo-600 text-white border-indigo-700" : "bg-white text-indigo-700 border-indigo-200 hover:border-indigo-300"}`}
-                          >
-                            {isSelected ? <Check size={12} /> : <Plus size={12} />}
-                            {tag.name}
-                            <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5" title={`Match Accuracy Distance: ${tag.score}`}> 
-                              <div 
-                                className={`h-full transition-all ${isSelected ? "bg-white" : "bg-indigo-500"}`}
-                                style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(tag.score)) * 100))}%` }}
-                              />
+                          <button key={tag.tagId} onClick={() => handleTagClick(tag.tagId)} className={`px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all flex items-center gap-1.5 ${isSelected ? "bg-indigo-600 text-white border-indigo-700" : "bg-white text-indigo-700 border-indigo-200 hover:border-indigo-300"}`}>
+                            {isSelected ? <Check size={12} /> : <Plus size={12} />} {tag.name}
+                            <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5">
+                              <div className={`h-full transition-all ${isSelected ? "bg-white" : "bg-indigo-500"}`} style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(tag.score)) * 100))}%` }} />
                             </div>
                           </button>
                         );
@@ -487,71 +442,34 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                   </div>
                 )}
 
-                {/* Potential Keywords */}
+                {/* Keywords Rendering */}
                 {extractedKeywords.length > 0 && (
                   <div>
                     <p className="text-[10px] uppercase font-bold text-purple-400 mb-3 tracking-wider">New Tag Suggestions:</p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {extractedKeywords
-                        .filter(kw => {
-                          if (!kw.keyword || kw.keyword.trim().length < 2) return false;
-                          const lower = kw.keyword.trim().toLowerCase();
-                          // Don't show if already in matched suggestions
-                          return !suggestedTags.some(s => s.name.toLowerCase() === lower);
-                        })
-                        .map((kw) => {
-                          const isSelected = selectedKeywords.includes(kw.keyword);
-                          return (
-                            <div key={kw.keyword} className={`relative flex flex-col bg-white border rounded-lg p-3 transition-all ${isSelected ? "border-purple-400 ring-1 ring-purple-400 shadow-sm" : "border-indigo-100 hover:border-purple-300 hover:shadow-sm"}`}>
-                                {/* Header */}
-                                <div className="flex justify-between items-start gap-2 mb-2">
-                                    <span className="text-xs font-bold text-purple-900 leading-tight break-words">{kw.keyword}</span>
-                                    <button
-                                        onClick={() => handleKeywordClick(kw.keyword)}
-                                        className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full border transition-colors ${isSelected ? "bg-purple-600 border-purple-600 text-white" : "bg-white border-zinc-200 text-zinc-400 hover:border-purple-400 hover:text-purple-600"}`}
-                                    >
-                                        {isSelected ? <Check size={10} /> : <Plus size={12} />}
-                                    </button>
-                                </div>
-
-                                {/* Score */}
-                                <div className="w-full h-1 bg-zinc-100 rounded-full overflow-hidden mb-3" title={`Match Accuracy Distance: ${kw.score}`}> 
-                                    <div 
-                                        className={`h-full transition-all ${isSelected ? "bg-purple-500" : "bg-purple-300"}`}
-                                        style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(kw.score)) * 100))}%` }}
-                                    />
-                                </div>
-
-                                {/* Variants */}
-                                {kw.variants && kw.variants.length > 0 ? (
-                                    <div className="mt-auto pt-2 border-t border-dashed border-zinc-100">
-                                        <p className="text-[9px] text-zinc-400 mb-1.5 font-medium">Alternatives:</p>
-                                        <div className="flex flex-wrap gap-1.5">
-                                        {kw.variants.map(v => (
-                                            <button 
-                                            key={v}
-                                            onClick={() => swapKeywordVariant(kw.keyword, v)}
-                                            className="text-[10px] bg-zinc-50 border border-zinc-100 px-1.5 py-0.5 rounded text-zinc-600 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200 transition-colors"
-                                            title={`Use "${v}" instead`}
-                                            >
-                                            {v}
-                                            </button>
-                                        ))}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="mt-auto text-[9px] text-zinc-300 italic">No variants</div>
-                                )}
+                      {extractedKeywords.filter(kw => !suggestedTags.some(s => s.name.toLowerCase() === kw.keyword.trim().toLowerCase())).map((kw) => {
+                        const isSelected = selectedKeywords.includes(kw.keyword);
+                        return (
+                          <div key={kw.keyword} className={`relative flex flex-col bg-white border rounded-lg p-3 transition-all ${isSelected ? "border-purple-400 ring-1 ring-purple-400 shadow-sm" : "border-indigo-100 hover:border-purple-300 hover:shadow-sm"}`}>
+                            <div className="flex justify-between items-start gap-2 mb-2">
+                              <span className="text-xs font-bold text-purple-900 leading-tight break-words">{kw.keyword}</span>
+                              <button onClick={() => handleKeywordClick(kw.keyword)} className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full border transition-colors ${isSelected ? "bg-purple-600 border-purple-600 text-white" : "bg-white border-zinc-200 text-zinc-400 hover:border-purple-400 hover:text-purple-600"}`}>{isSelected ? <Check size={10} /> : <Plus size={12} />}</button>
                             </div>
-                          );
-                        })}
+                            <div className="w-full h-1 bg-zinc-100 rounded-full overflow-hidden mb-3"><div className={`h-full transition-all ${isSelected ? "bg-purple-500" : "bg-purple-300"}`} style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(kw.score)) * 100))}%` }} /></div>
+                            {kw.variants && kw.variants.length > 0 && (
+                              <div className="mt-auto pt-2 border-t border-dashed border-zinc-100">
+                                <p className="text-[9px] text-zinc-400 mb-1.5 font-medium">Alternatives:</p>
+                                <div className="flex flex-wrap gap-1.5">{kw.variants.map(v => <button key={v} onClick={() => swapKeywordVariant(kw.keyword, v)} className="text-[10px] bg-zinc-50 border border-zinc-100 px-1.5 py-0.5 rounded text-zinc-600 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200 transition-colors">{v}</button>)}</div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
 
-                {suggestedTags.length === 0 && extractedKeywords.length === 0 && !isExtractingTags && !isExtractingKeywords && (
-                  <p className="text-sm text-zinc-400 italic text-center py-4">No suggestions yet. Click buttons above to analyze.</p>
-                )}
+                {suggestedTags.length === 0 && extractedKeywords.length === 0 && !isExtractingTags && !isExtractingKeywords && <p className="text-sm text-zinc-400 italic text-center py-4">No suggestions yet.</p>}
              </div>
 
              <div className="pt-4 border-t border-zinc-100">
@@ -560,22 +478,11 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
              </div>
 
              <DialogFooter className="mt-6">
-               <button
-                 type="button"
-                 onClick={() => setStep(contentType === "YOUTUBE_VIDEO" ? "preview" : "content")}
-                 className="px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors mr-auto flex items-center gap-2"
-               >
-                 <ArrowLeft size={14} />
-                 Back
+               <button onClick={() => setStep(contentType === "YOUTUBE_VIDEO" ? "preview" : "content")} className="px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors mr-auto flex items-center gap-2">
+                 <ArrowLeft size={14} /> Back
                </button>
-               <button
-                 type="button"
-                 onClick={handleSubmit}
-                 disabled={isLoading}
-                 className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-zinc-800 transition-colors disabled:opacity-50 flex items-center gap-2"
-               >
-                 {isLoading ? "Creating..." : "Create Content"}
-                 {!isLoading && <Check size={14} />}
+               <button onClick={handleSubmit} disabled={isLoading} className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-zinc-800 transition-colors disabled:opacity-50 flex items-center gap-2">
+                 {isLoading ? "Creating..." : "Create Content"} {!isLoading && <Check size={14} />}
                </button>
              </DialogFooter>
           </div>
