@@ -165,8 +165,8 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     if (mode === "keywords" || mode === "both") setIsExtractingKeywords(true);
     setSuggestionError("");
     
-    // Prepare text for suggestion engine
-    let textToAnalyze = content;
+    // Prepare text for suggestion engine: Always include Title for context
+    let textToAnalyze = title ? `${title}\n\n${content}` : content;
     if (contentType === "YOUTUBE_VIDEO") {
         textToAnalyze = `${title}\n\n${description}\n\n${transcript || ""}`;
     }
