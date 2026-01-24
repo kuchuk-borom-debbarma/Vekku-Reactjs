@@ -7,7 +7,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Check, ArrowRight, ArrowLeft, Sparkles } from "lucide-react";
+import { Plus, Check, ArrowRight, ArrowLeft, Sparkles, RotateCw } from "lucide-react";
 import api from "@/lib/api";
 import TagSelector from "@/components/TagSelector";
 import ReactMarkdown from "react-markdown";
@@ -23,6 +23,9 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   const [step, setStep] = useState<"content" | "tags">("content");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [description, setDescription] = useState(""); // For YouTube user description
+  const [transcript, setTranscript] = useState(""); // For YouTube transcript
+  const [isFetchingInfo, setIsFetchingInfo] = useState(false); // For loading state
   const [contentType, setContentType] = useState("PLAIN_TEXT");
   const [view, setView] = useState<"write" | "preview">("write");
 
@@ -43,6 +46,8 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   const resetState = () => {
     setTitle("");
     setContent("");
+    setDescription("");
+    setTranscript("");
     setContentType("PLAIN_TEXT");
     setView("write");
     setStep("content");
@@ -54,25 +59,68 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     setSuggestionError("");
   };
 
-  const handleNextStep = (e: React.FormEvent) => {
+  const handleNextStep = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !content) {
-        setError("Title and Body are required.");
+    
+    // Title is required for text content, but optional for YouTube (auto-fetched)
+    if (contentType !== "YOUTUBE_VIDEO" && !title) {
+        setError("Title is required.");
         return;
     }
+    if (!content) {
+        setError(contentType === "YOUTUBE_VIDEO" ? "YouTube URL is required." : "Body is required.");
+        return;
+    }
+
     setError("");
+    
+    // Auto-fetch YouTube info if needed
+    let currentTitle = title;
+    let currentTranscript = transcript;
+
+    if (contentType === "YOUTUBE_VIDEO") {
+      setIsFetchingInfo(true);
+      try {
+        const res = await api.post("/content/youtube/preview", { url: content });
+        if (res.data) {
+          if (!title) {
+            setTitle(res.data.title);
+            currentTitle = res.data.title;
+          }
+          setTranscript(res.data.transcript);
+          currentTranscript = res.data.transcript;
+        }
+      } catch (err: any) {
+        console.error("Failed to fetch info:", err);
+        setSuggestionError("Warning: Could not fetch video details. Suggestions might be less accurate.");
+      } finally {
+        setIsFetchingInfo(false);
+      }
+    }
+
     setStep("tags");
     
-    // Automatically trigger suggestions
-    handleSuggestTags();
-    handleExtractKeywords();
+    // Automatically trigger suggestions using the latest data
+    handleSuggestTags(currentTitle, currentTranscript);
+    handleExtractKeywords(currentTitle, currentTranscript);
   };
 
-  const handleSuggestTags = async () => {
+  const handleSuggestTags = async (overrideTitle?: string, overrideTranscript?: string) => {
     setIsExtractingTags(true);
     setSuggestionError("");
+    
+    const t = overrideTitle || title;
+    const ts = overrideTranscript || transcript;
+
+    // Prepare text for suggestion engine
+    let textToAnalyze = content;
+    if (contentType === "YOUTUBE_VIDEO") {
+        // Use full context (Title + Description + Transcript) for finding existing tags too
+        textToAnalyze = `${t}\n\n${description}\n\n${ts || ""}`;
+    }
+
     try {
-      const res = await api.post("/suggestions/generate", { text: content, mode: "tags" });
+      const res = await api.post("/suggestions/generate", { text: textToAnalyze, mode: "tags" });
       setSuggestedTags(res.data.existing || []);
       setExtractedKeywords(res.data.potential || []);
     } catch (err: any) {
@@ -88,11 +136,21 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     }
   };
 
-  const handleExtractKeywords = async () => {
+  const handleExtractKeywords = async (overrideTitle?: string, overrideTranscript?: string) => {
     setIsExtractingKeywords(true);
     setSuggestionError("");
+
+    const t = overrideTitle || title;
+    const ts = overrideTranscript || transcript;
+
+    // Prepare text for suggestion engine
+    let textToAnalyze = content;
+    if (contentType === "YOUTUBE_VIDEO") {
+        textToAnalyze = `${t}\n\n${description}\n\n${ts || ""}`;
+    }
+
     try {
-      const res = await api.post("/suggestions/generate", { text: content, mode: "keywords" });
+      const res = await api.post("/suggestions/generate", { text: textToAnalyze, mode: "keywords" });
       setExtractedKeywords(res.data.potential || []);
       setSuggestedTags(res.data.existing || []);
     } catch (err: any) {
@@ -155,12 +213,22 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
       }
 
       // 2. Create Content
-      await api.post("/content", {
-        title,
-        content,
-        contentType,
-        tagIds: finalTagIds,
-      });
+      if (contentType === "YOUTUBE_VIDEO") {
+        await api.post("/content/youtube", {
+          url: content, // Content state holds the URL
+          title,
+          description,
+          transcript, // Send the auto-fetched (and potentially user-edited if we added input) transcript
+          tagIds: finalTagIds,
+        });
+      } else {
+        await api.post("/content", {
+          title,
+          content,
+          contentType,
+          tagIds: finalTagIds,
+        });
+      }
 
       onContentCreated();
       setOpen(false);
@@ -210,7 +278,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                 className="w-full px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                required
+                required={contentType !== "YOUTUBE_VIDEO"}
               />
             </div>
 
@@ -226,31 +294,28 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
               >
                 <option value="PLAIN_TEXT">Plain Text</option>
                 <option value="MARKDOWN">Markdown</option>
+                <option value="YOUTUBE_VIDEO">YouTube Video</option>
               </select>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label htmlFor="content" className="text-sm font-medium text-zinc-900">
-                  Body
+                  {contentType === "YOUTUBE_VIDEO" ? "YouTube URL" : "Body"}
                 </label>
                 {contentType === "MARKDOWN" && (
                   <div className="flex bg-zinc-100 rounded-md p-1">
                     <button
                       type="button"
                       onClick={() => setView("write")}
-                      className={`px-3 py-1 text-xs font-medium rounded ${
-                        view === "write" ? "bg-white shadow-sm text-black" : "text-zinc-500 hover:text-zinc-700"
-                      }`}
+                      className={`px-3 py-1 text-xs font-medium rounded ${view === "write" ? "bg-white shadow-sm text-black" : "text-zinc-500 hover:text-zinc-700"}`}
                     >
                       Write
                     </button>
                     <button
                       type="button"
                       onClick={() => setView("preview")}
-                      className={`px-3 py-1 text-xs font-medium rounded ${
-                        view === "preview" ? "bg-white shadow-sm text-black" : "text-zinc-500 hover:text-zinc-700"
-                      }`}
+                      className={`px-3 py-1 text-xs font-medium rounded ${view === "preview" ? "bg-white shadow-sm text-black" : "text-zinc-500 hover:text-zinc-700"}`}
                     >
                       Preview
                     </button>
@@ -258,7 +323,45 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                 )}
               </div>
               
-              {contentType === "MARKDOWN" && view === "preview" ? (
+              {contentType === "YOUTUBE_VIDEO" ? (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      id="content" // reusing content state for URL
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      className="flex-1 px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm"
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      required
+                    />
+                  </div>
+                  {isFetchingInfo && (
+                    <div className="text-xs text-zinc-500 flex items-center gap-2">
+                      <RotateCw size={12} className="animate-spin" /> Fetching details...
+                    </div>
+                  )}
+                  
+                  {transcript && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 font-medium px-1">
+                      <Check size={12} />
+                      Transcript ready
+                    </div>
+                  )}
+                  
+                  <div className="space-y-1">
+                    <label htmlFor="description" className="text-sm font-medium text-zinc-900">
+                      Description (Optional)
+                    </label>
+                    <textarea
+                      id="description"
+                      placeholder="Add a personal note or description..."
+                      className="w-full px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm min-h-[100px]"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                    />
+                  </div>
+                </div>
+              ) : contentType === "MARKDOWN" && view === "preview" ? (
                 <div className="w-full px-4 py-3 border border-zinc-200 rounded-md bg-zinc-50 min-h-[300px] prose prose-sm max-w-none overflow-y-auto">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {content || "*Nothing to preview*"}
@@ -301,7 +404,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                </div>
                <div className="flex gap-2">
                  <button 
-                   onClick={handleSuggestTags}
+                   onClick={() => handleSuggestTags()}
                    disabled={isExtractingTags}
                    className="text-xs flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 bg-indigo-50 rounded-full hover:bg-indigo-100 transition-colors disabled:opacity-50"
                  >
@@ -309,7 +412,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                    Find Existing
                  </button>
                  <button 
-                   onClick={handleExtractKeywords}
+                   onClick={() => handleExtractKeywords()}
                    disabled={isExtractingKeywords}
                    className="text-xs flex items-center gap-1.5 text-purple-600 hover:text-purple-700 font-medium px-2 py-1 bg-purple-50 rounded-full hover:bg-purple-100 transition-colors disabled:opacity-50"
                  >
@@ -343,18 +446,14 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                           <button
                             key={tag.tagId}
                             onClick={() => handleTagClick(tag.tagId)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all flex items-center gap-1.5 ${
-                              isSelected 
-                                ? "bg-indigo-600 text-white border-indigo-700" 
-                                : "bg-white text-indigo-700 border-indigo-200 hover:border-indigo-300"
-                            }`}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all flex items-center gap-1.5 ${isSelected ? "bg-indigo-600 text-white border-indigo-700" : "bg-white text-indigo-700 border-indigo-200 hover:border-indigo-300"}`}
                           >
                             {isSelected ? <Check size={12} /> : <Plus size={12} />}
                             {tag.name}
                             <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5" title={`Match Accuracy Distance: ${tag.score}`}>
                               <div 
-                                className={`h-full transition-all ${isSelected ? "bg-white" : "bg-indigo-500"}`} 
-                                style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(tag.score)) * 100))}%` }} 
+                                className={`h-full transition-all ${isSelected ? "bg-white" : "bg-indigo-500"}`}
+                                style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(tag.score)) * 100))}%` }}
                               />
                             </div>
                           </button>
@@ -394,8 +493,8 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                                 {/* Score */}
                                 <div className="w-full h-1 bg-zinc-100 rounded-full overflow-hidden mb-3" title={`Match Accuracy Distance: ${kw.score}`}>
                                     <div 
-                                        className={`h-full transition-all ${isSelected ? "bg-purple-500" : "bg-purple-300"}`} 
-                                        style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(kw.score)) * 100))}%` }} 
+                                        className={`h-full transition-all ${isSelected ? "bg-purple-500" : "bg-purple-300"}`}
+                                        style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(kw.score)) * 100))}%` }}
                                     />
                                 </div>
 
