@@ -97,7 +97,6 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
           }
         } catch (err) {
           console.warn("Failed to fetch youtube info:", err);
-          // Don't block the user if metadata fetch fails
         } finally {
           setIsFetchingInfo(false);
         }
@@ -108,8 +107,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
         setStep("preview");
       } else {
         setStep("tags");
-        handleSuggestTags();
-        handleExtractKeywords();
+        handleGenerateSuggestions("both");
       }
       return;
     }
@@ -122,61 +120,43 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
       }
       setError("");
       setStep("tags");
-      handleSuggestTags();
-      handleExtractKeywords();
+      handleGenerateSuggestions("both");
       return;
     }
   };
 
-  const handleSuggestTags = async () => {
-    setIsExtractingTags(true);
+  const handleGenerateSuggestions = async (mode: "tags" | "keywords" | "both" = "both") => {
+    if (mode === "tags" || mode === "both") setIsExtractingTags(true);
+    if (mode === "keywords" || mode === "both") setIsExtractingKeywords(true);
     setSuggestionError("");
     
+    // Prepare text for suggestion engine
     let textToAnalyze = content;
     if (contentType === "YOUTUBE_VIDEO") {
         textToAnalyze = `${title}\n\n${description}\n\n${transcript || ""}`;
     }
 
     try {
-      const res = await api.post("/suggestions/generate", { text: textToAnalyze, mode: "tags" });
-      setSuggestedTags(res.data.existing || []);
-      setExtractedKeywords(res.data.potential || []);
+      const res = await api.post("/suggestions/generate", { text: textToAnalyze, mode });
+      const { existing = [], potential = [] } = res.data || {};
+      
+      if (mode === "tags" || mode === "both") {
+        setSuggestedTags(existing);
+      }
+      if (mode === "keywords" || mode === "both") {
+        setExtractedKeywords(potential);
+      }
     } catch (err: any) {
       console.error("Failed to suggest tags:", err);
       if (err.response?.status === 429) {
         setSuggestionError("AI rate limit exceeded. Please wait a minute.");
       } else {
-        setSuggestionError("Failed to fetch tag suggestions.");
+        setSuggestionError("Failed to fetch suggestions.");
       }
     }
     finally {
-      setIsExtractingTags(false);
-    }
-  };
-
-  const handleExtractKeywords = async () => {
-    setIsExtractingKeywords(true);
-    setSuggestionError("");
-
-    let textToAnalyze = content;
-    if (contentType === "YOUTUBE_VIDEO") {
-        textToAnalyze = `${title}\n\n${description}\n\n${transcript || ""}`;
-    }
-
-    try {
-      const res = await api.post("/suggestions/generate", { text: textToAnalyze, mode: "keywords" });
-      setExtractedKeywords(res.data.potential || []);
-      setSuggestedTags(res.data.existing || []);
-    } catch (err: any) {
-      console.error("Failed to suggest keywords:", err);
-      if (err.response?.status === 429) {
-        setSuggestionError("AI rate limit exceeded. Please wait a minute.");
-      } else {
-        setSuggestionError("Failed to discover new keywords.");
-      }
-    }
-    finally {
-      setIsExtractingKeywords(false);
+      if (mode === "tags" || mode === "both") setIsExtractingTags(false);
+      if (mode === "keywords" || mode === "both") setIsExtractingKeywords(false);
     }
   };
 
@@ -427,14 +407,21 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
         {step === "tags" && (
           <div className="space-y-4 py-2">
-             {/* Suggestions UI ... */}
              <div className="flex items-center justify-between mb-2 gap-2">
                <div className="text-sm text-zinc-500 font-medium">Tag Recommendations</div>
                <div className="flex gap-2">
-                 <button onClick={() => handleSuggestTags()} disabled={isExtractingTags} className="text-xs flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 bg-indigo-50 rounded-full hover:bg-indigo-100 transition-colors disabled:opacity-50">
-                   <Sparkles size={12} className={isExtractingTags ? "animate-spin" : ""} /> Find Existing
+                 <button 
+                   onClick={() => handleGenerateSuggestions("tags")} 
+                   disabled={isExtractingTags} 
+                   className="text-xs flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 bg-indigo-50 rounded-full hover:bg-indigo-100 transition-colors disabled:opacity-50"
+                 >
+                   <RotateCw size={12} className={isExtractingTags ? "animate-spin" : ""} /> Find Existing
                  </button>
-                 <button onClick={() => handleExtractKeywords()} disabled={isExtractingKeywords} className="text-xs flex items-center gap-1.5 text-purple-600 hover:text-purple-700 font-medium px-2 py-1 bg-purple-50 rounded-full hover:bg-purple-100 transition-colors disabled:opacity-50">
+                 <button 
+                   onClick={() => handleGenerateSuggestions("keywords")} 
+                   disabled={isExtractingKeywords} 
+                   className="text-xs flex items-center gap-1.5 text-purple-600 hover:text-purple-700 font-medium px-2 py-1 bg-purple-50 rounded-full hover:bg-purple-100 transition-colors disabled:opacity-50"
+                 >
                    <Sparkles size={12} className={isExtractingKeywords ? "animate-spin" : ""} /> Discover New
                  </button>
                </div>
@@ -442,46 +429,82 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
              <div className="bg-zinc-50/50 rounded-xl p-4 border border-zinc-100 space-y-4 min-h-[100px]">
                 {suggestionError && <div className="mb-2 p-2 bg-red-50 text-red-600 text-xs rounded border border-red-100">{suggestionError}</div>}
-                {(suggestedTags.length > 0 || extractedKeywords.length > 0) && <p className="text-[10px] text-zinc-400 font-medium italic border-b border-zinc-100 pb-2 mb-2">Note: A more filled bar indicates a higher semantic match accuracy.</p>}
+                {(suggestedTags.length > 0 || extractedKeywords.length > 0) && (
+                  <p className="text-[10px] text-zinc-400 font-medium italic border-b border-zinc-100 pb-2 mb-2">
+                    Note: A more filled bar indicates a higher semantic match accuracy.
+                  </p>
+                )}
 
+                {/* Suggested Existing Tags */}
                 {suggestedTags.length > 0 && (
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-indigo-400 mb-2 tracking-wider">Suggested Existing Tags:</p>
+                    <p className="text-[10px] uppercase font-bold text-indigo-400 mb-2 tracking-wider">Suggested Existing Tags</p>
                     <div className="flex flex-wrap gap-2">
-                      {suggestedTags.map((tag) => (
-                        <button key={tag.tagId} onClick={() => handleTagClick(tag.tagId)} className={`px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all flex items-center gap-1.5 ${selectedTagIds.includes(tag.tagId) ? "bg-indigo-600 text-white border-indigo-700" : "bg-white text-indigo-700 border-indigo-200"}`}>
-                          {selectedTagIds.includes(tag.tagId) ? <Check size={12} /> : <Plus size={12} />} {tag.name}
-                          <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5"><div className={`h-full transition-all ${selectedTagIds.includes(tag.tagId) ? "bg-white" : "bg-indigo-500"}`} style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(tag.score)) * 100))}%` }} /></div>
-                        </button>
-                      ))}
+                      {suggestedTags.map((tag) => {
+                        const isSelected = selectedTagIds.includes(tag.tagId);
+                        return (
+                          <button 
+                            key={tag.tagId} 
+                            onClick={() => handleTagClick(tag.tagId)} 
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all flex items-center gap-1.5 ${isSelected ? "bg-indigo-600 text-white border-indigo-700" : "bg-white text-indigo-700 border-indigo-200 hover:border-indigo-300"}`}
+                          >
+                            {isSelected ? <Check size={12} /> : <Plus size={12} />} {tag.name}
+                            <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5">
+                              <div 
+                                className={`h-full transition-all ${isSelected ? "bg-white" : "bg-indigo-500"}`}
+                                style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(tag.score)) * 100))}%` }}
+                              />
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
 
+                {/* New Tag Suggestions (Keywords) */}
                 {extractedKeywords.length > 0 && (
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-purple-400 mb-3 tracking-wider">New Tag Suggestions:</p>
+                    <p className="text-[10px] uppercase font-bold text-purple-400 mb-3 tracking-wider">New Tag Suggestions</p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {extractedKeywords.filter(kw => !suggestedTags.some(s => s.name.toLowerCase() === kw.keyword.trim().toLowerCase())).map((kw) => (
-                        <div key={kw.keyword} className={`relative flex flex-col bg-white border rounded-lg p-3 transition-all ${selectedKeywords.includes(kw.keyword) ? "border-purple-400 ring-1 ring-purple-400 shadow-sm" : "border-indigo-100 hover:border-purple-300"}`}>
-                          <div className="flex justify-between items-start gap-2 mb-2">
-                            <span className="text-xs font-bold text-purple-900 leading-tight break-words">{kw.keyword}</span>
-                            <button onClick={() => handleKeywordClick(kw.keyword)} className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full border transition-colors ${selectedKeywords.includes(kw.keyword) ? "bg-purple-600 border-purple-600 text-white" : "bg-white border-zinc-200 text-zinc-400 hover:border-purple-400 hover:text-purple-600"}`}>{selectedKeywords.includes(kw.keyword) ? <Check size={10} /> : <Plus size={12} />}</button>
-                          </div>
-                          <div className="w-full h-1 bg-zinc-100 rounded-full overflow-hidden mb-3"><div className={`h-full transition-all ${selectedKeywords.includes(kw.keyword) ? "bg-purple-500" : "bg-purple-300"}`} style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(kw.score)) * 100))}%` }} /></div>
-                          {kw.variants && kw.variants.length > 0 && (
-                            <div className="mt-auto pt-2 border-t border-dashed border-zinc-100">
-                              <p className="text-[9px] text-zinc-400 mb-1.5 font-medium">Alternatives:</p>
-                              <div className="flex flex-wrap gap-1.5">{kw.variants.map(v => <button key={v} onClick={() => swapKeywordVariant(kw.keyword, v)} className="text-[10px] bg-zinc-50 border border-zinc-100 px-1.5 py-0.5 rounded text-zinc-600 hover:bg-purple-50 hover:text-purple-700">{v}</button>)}</div>
+                      {extractedKeywords.filter(kw => !suggestedTags.some(s => s.name.toLowerCase() === kw.keyword.trim().toLowerCase())).map((kw) => {
+                        const isSelected = selectedKeywords.includes(kw.keyword);
+                        return (
+                          <div key={kw.keyword} className={`relative flex flex-col bg-white border rounded-lg p-3 transition-all ${isSelected ? "border-purple-400 ring-1 ring-purple-400 shadow-sm" : "border-indigo-100 hover:border-purple-300 hover:shadow-sm"}`}>
+                            <div className="flex justify-between items-start gap-2 mb-2">
+                              <span className="text-xs font-bold text-purple-900 leading-tight break-words">{kw.keyword}</span>
+                              <button 
+                                onClick={() => handleKeywordClick(kw.keyword)} 
+                                className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full border transition-colors ${isSelected ? "bg-purple-600 border-purple-600 text-white" : "bg-white border-zinc-200 text-zinc-400 hover:border-purple-400 hover:text-purple-600"}`}
+                              >
+                                {isSelected ? <Check size={10} /> : <Plus size={12} />}
+                              </button>
                             </div>
-                          )}
-                        </div>
-                      ))}
+                            <div className="w-full h-1 bg-zinc-100 rounded-full overflow-hidden mb-3">
+                              <div className={`h-full transition-all ${isSelected ? "bg-purple-500" : "bg-purple-300"}`} style={{ width: `${Math.max(10, Math.min(100, (1 - parseFloat(kw.score)) * 100))}%` }} />
+                            </div>
+                            {kw.variants && kw.variants.length > 0 && (
+                              <div className="mt-auto pt-2 border-t border-dashed border-zinc-100">
+                                <p className="text-[9px] text-zinc-400 mb-1.5 font-medium">Alternatives:</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {kw.variants.map(v => (
+                                    <button key={v} onClick={() => swapKeywordVariant(kw.keyword, v)} className="text-[10px] bg-zinc-50 border border-zinc-100 px-1.5 py-0.5 rounded text-zinc-600 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200 transition-colors">
+                                      {v}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
 
-                {suggestedTags.length === 0 && extractedKeywords.length === 0 && !isExtractingTags && !isExtractingKeywords && <p className="text-sm text-zinc-400 italic text-center py-4">No suggestions yet.</p>}
+                {suggestedTags.length === 0 && extractedKeywords.length === 0 && !isExtractingTags && !isExtractingKeywords && (
+                  <p className="text-sm text-zinc-400 italic text-center py-4">No suggestions yet. Provide content and click buttons above.</p>
+                )}
              </div>
 
              <div className="pt-4 border-t border-zinc-100">
