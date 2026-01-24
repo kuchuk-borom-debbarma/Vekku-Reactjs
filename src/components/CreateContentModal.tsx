@@ -38,6 +38,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   // Selection State (Local until save)
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [customTagsInput, setCustomTagsInput] = useState("");
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -88,6 +89,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     setStep("content");
     setSelectedTagIds([]);
     setSelectedKeywords([]);
+    setCustomTagsInput("");
     setSuggestedTags([]);
     setExtractedKeywords([]);
     setError("");
@@ -230,9 +232,18 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     try {
       let finalTagIds = [...selectedTagIds];
 
-      if (selectedKeywords.length > 0) {
+      // Parse custom manual tags
+      const manualTags = customTagsInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+
+      // Combine with selected AI keywords and deduplicate
+      const allNewTags = Array.from(new Set([...selectedKeywords, ...manualTags]));
+
+      if (allNewTags.length > 0) {
         const createTagsRes = await api.post("/tag", { 
-          tags: selectedKeywords.map(kw => ({ name: kw, semantic: kw })) 
+          tags: allNewTags.map(kw => ({ name: kw, semantic: kw })) 
         });
         const newTagIds = (createTagsRes.data || []).map((t: any) => t.id);
         finalTagIds = [...finalTagIds, ...newTagIds];
@@ -545,6 +556,17 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                 {suggestedTags.length === 0 && extractedKeywords.length === 0 && !isExtractingTags && !isExtractingKeywords && (
                   <p className="text-sm text-zinc-400 italic text-center py-4">No suggestions yet. Provide content and click buttons above.</p>
                 )}
+             </div>
+
+             <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-900">Add New Tags Manually</label>
+                <input 
+                  placeholder="e.g. Unreal Engine, Tutorial, Gaming (comma separated)" 
+                  className="w-full px-3 py-2 border border-zinc-200 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm"
+                  value={customTagsInput}
+                  onChange={(e) => setCustomTagsInput(e.target.value)}
+                />
+                <p className="text-[10px] text-zinc-400 italic">Tags will be created and linked automatically.</p>
              </div>
 
              <div className="pt-4 border-t border-zinc-100">
