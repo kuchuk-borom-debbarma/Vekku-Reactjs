@@ -78,7 +78,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
       if (contentType === "YOUTUBE_VIDEO") {
         setIsFetchingInfo(true);
         try {
-          const res = await api.post("/api/youtube/preview", { url: content });
+          const res = await api.post("/youtube/preview", { url: content });
           if (res.data) {
             if (!title) setTitle(res.data.title);
             setTranscript(res.data.transcript);
@@ -210,7 +210,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
       // 2. Create Content
       if (contentType === "YOUTUBE_VIDEO") {
-        await api.post("/api/content/youtube", {
+        await api.post("/content/youtube", {
           url: content, // Content state holds the URL
           title,
           description,
@@ -218,7 +218,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
           tagIds: finalTagIds,
         });
       } else {
-        await api.post("/api/content", {
+        await api.post("/content", {
           title,
           content,
           contentType,
