@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, ChevronLeft, ChevronRight, Trash2, Filter, X, CheckSquare, Square, Trash } from "lucide-react";
-import api, { bulkDeleteContents } from "@/lib/api";
+import { FileText, ChevronLeft, ChevronRight, Trash2, Filter, X, CheckSquare, Square, Trash, Search, Sparkles } from "lucide-react";
+import api, { bulkDeleteContents, searchContents } from "@/lib/api";
 import CreateContentModal from "@/components/CreateContentModal";
 import EditContentModal from "@/components/EditContentModal";
 import ContentView from "@/components/ContentView";
@@ -42,6 +42,10 @@ const Contents: React.FC = () => {
   const [chunkId, setChunkId] = useState<string | undefined>(undefined);
   const [chunkStack, setChunkStack] = useState<string[]>([]);
 
+  // Search State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
   // Filtering State
   const [activeFilterTagIds, setActiveFilterTagIds] = useState<string[]>([]);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
@@ -52,20 +56,53 @@ const Contents: React.FC = () => {
 
   const isFiltering = activeFilterTagIds.length > 0;
 
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+      setOffset(0); 
+      setChunkId(undefined);
+      setChunkStack([]);
+      setSelectedIds(new Set());
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const { data: response, isLoading, error, refetch } = useQuery({
-    queryKey: ["contents", { offset, chunkId, activeFilterTagIds }],
+    queryKey: ["contents", { offset, chunkId, activeFilterTagIds, debouncedQuery }],
     queryFn: async () => {
+      // 1. Semantic Search
+      if (debouncedQuery) {
+        const res = await searchContents(debouncedQuery, LIMIT);
+        // Wrap array result to match pagination structure
+        return {
+           data: res.data, 
+           metadata: { 
+             chunkTotalItems: res.data.length, 
+             limit: LIMIT, 
+             offset: 0, 
+             nextChunkId: null,
+             chunkSize: LIMIT
+           } 
+        };
+      }
+
       const params = new URLSearchParams({
         limit: LIMIT.toString(),
         offset: offset.toString(),
       });
       if (chunkId) params.append("chunkId", chunkId);
 
+      // 2. Filter by Tags
       if (isFiltering) {
         params.append("tagIds", activeFilterTagIds.join(","));
         const res = await api.get(`/content/by-tags?${params.toString()}`);
         return res.data;
-      } else {
+      } 
+      
+      // 3. Standard List
+      else {
         const res = await api.get(`/content?${params.toString()}`);
         return res.data;
       }
@@ -133,6 +170,15 @@ const Contents: React.FC = () => {
 
   const handleNext = () => {
     if (!metadata) return;
+    
+    if (debouncedQuery) {
+      if (contents.length === LIMIT) {
+        setOffset(offset + LIMIT);
+        setSelectedIds(new Set());
+      }
+      return;
+    }
+
     if (offset + LIMIT < metadata.chunkTotalItems) {
       setOffset(offset + LIMIT);
     } else if (metadata.nextChunkId) {
@@ -144,6 +190,14 @@ const Contents: React.FC = () => {
   };
 
   const handlePrev = () => {
+    if (debouncedQuery) {
+      if (offset > 0) {
+        setOffset(Math.max(0, offset - LIMIT));
+        setSelectedIds(new Set());
+      }
+      return;
+    }
+
     if (offset - LIMIT >= 0) {
       setOffset(offset - LIMIT);
     } else if (chunkStack.length > 0) {
@@ -156,8 +210,13 @@ const Contents: React.FC = () => {
     setSelectedIds(new Set()); // Clear selection on page change
   };
 
-  const canGoNext = metadata ? (offset + LIMIT < metadata.chunkTotalItems || !!metadata.nextChunkId) : false;
-  const canGoPrev = offset > 0 || chunkStack.length > 0;
+  const canGoNext = metadata ? (
+    debouncedQuery 
+      ? contents.length === LIMIT 
+      : (offset + LIMIT < metadata.chunkTotalItems || !!metadata.nextChunkId)
+  ) : false;
+
+  const canGoPrev = debouncedQuery ? offset > 0 : (offset > 0 || chunkStack.length > 0);
 
   const openFilterDialog = () => {
     setPendingTagIds([...activeFilterTagIds]);
@@ -216,8 +275,32 @@ const Contents: React.FC = () => {
           </button>
         </div>
       ) : (
-        /* Filter Bar */
+        /* Filter & Search Bar */
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 glass p-3 rounded-2xl shadow-lg border border-white/30">
+          
+          {/* Search Input */}
+          <div className="flex-1 flex items-center gap-3 px-3 bg-white/50 rounded-xl border border-white/40 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+            {searchQuery ? (
+               <Sparkles size={18} className="text-indigo-500 animate-pulse" />
+            ) : (
+               <Search size={18} className="text-zinc-400" />
+            )}
+            <input 
+              type="text" 
+              placeholder="Search content semantically..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 bg-transparent border-none outline-none py-2.5 text-sm font-medium text-zinc-900 placeholder-zinc-400"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="text-zinc-400 hover:text-zinc-600">
+                <X size={16} />
+              </button>
+            )}
+          </div>
+
+          <div className="w-px h-8 bg-zinc-200 hidden sm:block mx-1"></div>
+
           <button 
             onClick={openFilterDialog}
             className={`flex items-center justify-center sm:justify-start gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
@@ -225,7 +308,7 @@ const Contents: React.FC = () => {
             }`}
           >
             <Filter size={16} />
-            {isFiltering ? `Filtered by ${activeFilterTagIds.length} tags` : "Filter by Tags"}
+            {isFiltering ? `Filtered (${activeFilterTagIds.length})` : "Tags"}
           </button>
 
           {/* Delete ALL Button (Danger Zone) */}
@@ -244,7 +327,6 @@ const Contents: React.FC = () => {
                 className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50/50 rounded-xl transition-colors"
               >
                 <X size={14} />
-                Clear Filter
               </button>
             )}
           </div>
@@ -255,7 +337,7 @@ const Contents: React.FC = () => {
       <div className="glass rounded-[2rem] border border-white/30 shadow-2xl min-h-[400px] overflow-hidden flex flex-col mb-12">
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center p-12 text-zinc-600 font-medium">
-            Fetching content...
+            {debouncedQuery ? "Searching semantics..." : "Fetching content..."}
           </div>
         ) : error ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
@@ -277,13 +359,19 @@ const Contents: React.FC = () => {
         ) : contents.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 p-8 text-center">
             <div className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center mb-3 mx-auto">
-              <FileText className="text-zinc-300" />
+              {debouncedQuery ? <Search className="text-zinc-300" /> : <FileText className="text-zinc-300" />}
             </div>
-            <p className="font-medium text-zinc-900">{isFiltering ? "No contents match these tags." : "No contents found."}</p>
+            <p className="font-medium text-zinc-900">
+              {debouncedQuery 
+                ? "No contents match your semantic search." 
+                : isFiltering 
+                  ? "No contents match these tags." 
+                  : "No contents found."}
+            </p>
             <div className="mt-4">
-              {isFiltering ? (
-                <button onClick={clearFilter} className="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
-                  Clear filter to see all
+              {debouncedQuery || isFiltering ? (
+                <button onClick={() => { setSearchQuery(""); clearFilter(); }} className="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+                  Clear filters to see all
                 </button>
               ) : (
                 <CreateContentModal 
@@ -304,7 +392,7 @@ const Contents: React.FC = () => {
                <button onClick={handleSelectAllInView} className="hover:text-zinc-800 transition-colors">
                  {allInViewSelected ? <CheckSquare size={16} /> : <Square size={16} />}
                </button>
-               <span>Select All</span>
+               <span>Select All {debouncedQuery && "(Search Results)"}</span>
             </div>
 
             {contents.map((content: Content) => (
@@ -354,7 +442,7 @@ const Contents: React.FC = () => {
         )}
 
         {/* Pagination Footer */}
-        {contents.length > 0 && (
+        {contents.length > 0 && !debouncedQuery && (
            <div className="border-t border-zinc-100 px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-center justify-between bg-zinc-50/50 gap-3">
              <span className="text-[10px] sm:text-xs text-zinc-500">
                 Showing {offset + 1}-{Math.min(offset + LIMIT, metadata?.chunkTotalItems || 0)} of {metadata?.chunkTotalItems || 0} {isFiltering ? "matches" : "in segment"}
@@ -376,6 +464,11 @@ const Contents: React.FC = () => {
                </button>
              </div>
            </div>
+         )}
+         {debouncedQuery && contents.length > 0 && (
+            <div className="border-t border-zinc-100 px-4 py-3 bg-indigo-50/30 text-center text-xs text-indigo-800 font-medium">
+              Showing top {contents.length} semantic matches
+            </div>
          )}
       </div>
 

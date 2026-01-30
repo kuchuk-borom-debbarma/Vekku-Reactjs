@@ -105,4 +105,8 @@ export const bulkDeleteTags = async (ids: string[] | "*") => {
   return api.delete("/tag/bulk", { data: { ids } });
 };
 
+export const searchContents = async (query: string, limit: number = 20, offset: number = 0) => {
+  return api.get(`/content/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`);
+};
+
 export default api;
