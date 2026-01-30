@@ -262,7 +262,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
           tagIds: finalTagIds,
         });
       } else {
-        await api.post("/api/content", {
+        await api.post("/content", {
           title,
           content,
           contentType,
