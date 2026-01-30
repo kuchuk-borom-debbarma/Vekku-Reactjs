@@ -98,11 +98,11 @@ api.interceptors.response.use(
 );
 
 export const bulkDeleteContents = async (ids: string[] | "*") => {
-  return api.delete("/contents/bulk", { data: { ids } });
+  return api.delete("/content/bulk", { data: { ids } });
 };
 
 export const bulkDeleteTags = async (ids: string[] | "*") => {
-  return api.delete("/tags/bulk", { data: { ids } });
+  return api.delete("/tag/bulk", { data: { ids } });
 };
 
 export default api;
