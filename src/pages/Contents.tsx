@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, ChevronLeft, ChevronRight, Trash2, Filter, X } from "lucide-react";
-import api from "@/lib/api";
+import { FileText, ChevronLeft, ChevronRight, Trash2, Filter, X, CheckSquare, Square, Trash } from "lucide-react";
+import api, { bulkDeleteContents } from "@/lib/api";
 import CreateContentModal from "@/components/CreateContentModal";
 import EditContentModal from "@/components/EditContentModal";
 import ContentView from "@/components/ContentView";
@@ -32,7 +32,7 @@ interface PaginationMetadata {
   offset: number;
 }
 
-const LIMIT = 5;
+const LIMIT = 20; // Increased limit for better bulk operations
 
 const Contents: React.FC = () => {
   const queryClient = useQueryClient();
@@ -46,6 +46,9 @@ const Contents: React.FC = () => {
   const [activeFilterTagIds, setActiveFilterTagIds] = useState<string[]>([]);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const [pendingTagIds, setPendingTagIds] = useState<string[]>([]);
+
+  // Selection State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const isFiltering = activeFilterTagIds.length > 0;
 
@@ -74,6 +77,7 @@ const Contents: React.FC = () => {
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["contents"] });
+    setSelectedIds(new Set());
   };
 
   const handleDelete = async (id: string) => {
@@ -87,6 +91,46 @@ const Contents: React.FC = () => {
     }
   };
 
+  const handleToggleSelection = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleSelectAllInView = () => {
+    if (contents.length === 0) return;
+    const allInViewSelected = contents.every((c: Content) => selectedIds.has(c.id));
+    const newSelected = new Set(selectedIds);
+    
+    if (allInViewSelected) {
+      contents.forEach((c: Content) => newSelected.delete(c.id));
+    } else {
+      contents.forEach((c: Content) => newSelected.add(c.id));
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleBulkDelete = async (deleteAll: boolean = false) => {
+    const count = deleteAll ? "ALL CONTENTS" : `${selectedIds.size} selected contents`;
+    if (!confirm(`Are you sure you want to delete ${count}? This cannot be undone.`)) return;
+
+    try {
+      if (deleteAll) {
+        await bulkDeleteContents("*");
+      } else {
+        await bulkDeleteContents(Array.from(selectedIds));
+      }
+      handleRefresh();
+    } catch (error) {
+      console.error("Failed to bulk delete:", error);
+      alert("Failed to delete contents.");
+    }
+  };
+
   const handleNext = () => {
     if (!metadata) return;
     if (offset + LIMIT < metadata.chunkTotalItems) {
@@ -96,6 +140,7 @@ const Contents: React.FC = () => {
       setChunkId(metadata.nextChunkId);
       setOffset(0);
     }
+    setSelectedIds(new Set()); // Clear selection on page change
   };
 
   const handlePrev = () => {
@@ -108,6 +153,7 @@ const Contents: React.FC = () => {
       setChunkId(prevChunk === "" ? undefined : prevChunk);
       setOffset(0);
     }
+    setSelectedIds(new Set()); // Clear selection on page change
   };
 
   const canGoNext = metadata ? (offset + LIMIT < metadata.chunkTotalItems || !!metadata.nextChunkId) : false;
@@ -139,6 +185,8 @@ const Contents: React.FC = () => {
     );
   };
 
+  const allInViewSelected = contents.length > 0 && contents.every((c: Content) => selectedIds.has(c.id));
+
   return (
     <div className="space-y-6 px-1 sm:px-0">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -146,37 +194,62 @@ const Contents: React.FC = () => {
         <CreateContentModal onContentCreated={handleRefresh} />
       </div>
 
-      {/* Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 glass p-3 rounded-2xl shadow-lg border border-white/30">
-        <button 
-          onClick={openFilterDialog}
-          className={`flex items-center justify-center sm:justify-start gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-            isFiltering ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200" : "bg-white/40 text-zinc-700 hover:bg-white/60"
-          }`}
-        >
-          <Filter size={16} />
-          {isFiltering ? `Filtered by ${activeFilterTagIds.length} tags` : "Filter by Tags"}
-        </button>
-
-        <div className="flex items-center justify-between sm:justify-start gap-4">
-          {isFiltering && (
-            <button 
-              onClick={clearFilter}
-              className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50/50 rounded-xl transition-colors"
-            >
-              <X size={14} />
-              Clear Filter
-            </button>
-          )}
-
-          {isFiltering && (
-            <span className="text-[10px] text-indigo-600 font-black uppercase tracking-[0.2em] sm:ml-auto animate-pulse flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
-              Filter Active
-            </span>
-          )}
+      {/* Bulk Action Bar (Overlay or Replacement) */}
+      {selectedIds.size > 0 ? (
+        <div className="flex items-center gap-3 bg-zinc-900 p-3 rounded-2xl shadow-lg border border-zinc-800 text-white animate-in slide-in-from-top-2 fade-in">
+          <div className="flex items-center gap-2 px-3 border-r border-zinc-700">
+            <span className="font-bold text-sm">{selectedIds.size} Selected</span>
+          </div>
+          <button 
+            onClick={() => handleBulkDelete(false)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-zinc-800 transition-colors text-xs font-bold text-red-400 hover:text-red-300"
+          >
+            <Trash size={14} />
+            Delete Selected
+          </button>
+          <div className="flex-1" />
+          <button 
+            onClick={() => setSelectedIds(new Set())}
+            className="px-3 py-1.5 text-xs text-zinc-400 hover:text-white"
+          >
+            Cancel
+          </button>
         </div>
-      </div>
+      ) : (
+        /* Filter Bar */
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 glass p-3 rounded-2xl shadow-lg border border-white/30">
+          <button 
+            onClick={openFilterDialog}
+            className={`flex items-center justify-center sm:justify-start gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              isFiltering ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200" : "bg-white/40 text-zinc-700 hover:bg-white/60"
+            }`}
+          >
+            <Filter size={16} />
+            {isFiltering ? `Filtered by ${activeFilterTagIds.length} tags` : "Filter by Tags"}
+          </button>
+
+          {/* Delete ALL Button (Danger Zone) */}
+          <button 
+            onClick={() => handleBulkDelete(true)}
+            className="flex items-center justify-center sm:justify-start gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all bg-white/40 text-zinc-400 hover:bg-red-50 hover:text-red-600 sm:ml-auto"
+            title="Delete ALL Contents"
+          >
+            <Trash2 size={16} />
+          </button>
+
+          <div className="flex items-center justify-between sm:justify-start gap-4">
+            {isFiltering && (
+              <button 
+                onClick={clearFilter}
+                className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50/50 rounded-xl transition-colors"
+              >
+                <X size={14} />
+                Clear Filter
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Content List Container */}
       <div className="glass rounded-[2rem] border border-white/30 shadow-2xl min-h-[400px] overflow-hidden flex flex-col mb-12">
@@ -226,9 +299,24 @@ const Contents: React.FC = () => {
           </div>
         ) : (
           <div className="flex-1 divide-y divide-zinc-50">
+            {/* Header for Select All */}
+            <div className="px-4 sm:px-6 py-2 bg-zinc-50/50 flex items-center gap-4 text-xs font-medium text-zinc-500">
+               <button onClick={handleSelectAllInView} className="hover:text-zinc-800 transition-colors">
+                 {allInViewSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+               </button>
+               <span>Select All</span>
+            </div>
+
             {contents.map((content: Content) => (
-              <div key={content.id} className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-zinc-50 transition-colors group gap-4">
+              <div key={content.id} className={`px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between transition-colors group gap-4 ${selectedIds.has(content.id) ? "bg-indigo-50/50 hover:bg-indigo-50" : "hover:bg-zinc-50"}`}>
                 <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleToggleSelection(content.id); }}
+                    className={`shrink-0 text-zinc-400 hover:text-zinc-600 transition-colors ${selectedIds.has(content.id) ? "text-indigo-600" : ""}`}
+                  >
+                    {selectedIds.has(content.id) ? <CheckSquare size={18} /> : <Square size={18} />}
+                  </button>
+
                   <div className="w-8 h-8 rounded bg-indigo-50 flex-shrink-0 flex items-center justify-center text-indigo-600 mt-0.5 sm:mt-0">
                     <FileText size={14} />
                   </div>
