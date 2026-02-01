@@ -43,7 +43,7 @@ interface TagItem {
 interface SuggestionItem {
   id?: string; // Tag ID if existing
   name: string; // Tag Name or Keyword
-  score: string;
+  score: number;
   type: "EXISTING" | "KEYWORD";
   variants?: string[];
 }
@@ -257,68 +257,62 @@ const TagsSection: React.FC<{ contentId: string }> = ({ contentId }) => {
   );
 };
 
-const SuggestionsSection: React.FC<{ contentId: string; contentBody: string }> = ({ contentId, contentBody }) => {
+const SuggestionsSection: React.FC<{ contentId: string }> = ({ contentId }) => {
   const queryClient = useQueryClient();
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Separate loading states for actions
-  const [isGeneratingTags, setIsGeneratingTags] = useState(false);
-  const [isGeneratingKeywords, setIsGeneratingKeywords] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
 
-  // Initial fetch could be manual or auto. Let's make it manual or "on mount if empty"
-  // But request says "independent loading". We can auto-fetch on mount.
-  
   useEffect(() => {
-    if (contentId && contentBody) {
-       generateSuggestions("both");
+    if (contentId) {
+       fetchSuggestions();
     }
-  }, [contentId, contentBody]);
+  }, [contentId]);
 
-  const generateSuggestions = async (mode: "tags" | "keywords" | "both") => {
-    if (mode === "tags") setIsGeneratingTags(true);
-    else if (mode === "keywords") setIsGeneratingKeywords(true);
-    else setIsLoading(true);
+  const fetchSuggestions = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await api.get(`/suggestions/content/${contentId}`);
+      const { existing = [], potential = [] } = res.data;
+      const newItems: SuggestionItem[] = [
+        ...existing.map((s: any) => ({ ...s, id: s.tagId, type: "EXISTING" })),
+        ...potential.map((p: any) => ({ ...p, name: p.keyword, type: "KEYWORD" }))
+      ];
+      setSuggestions(newItems);
+    } catch (e: any) {
+      console.error(e);
+      setError("Failed to load suggestions.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  const handleRegenerate = async () => {
+    setIsRegenerating(true);
     setError(null);
 
     try {
-      const res = await api.post(`/suggestions/generate`, { 
-        contentId, 
-        text: contentBody, 
-        mode 
-      });
-      
+      const res = await api.post(`/suggestions/content/${contentId}/regenerate`);
       const { existing = [], potential = [] } = res.data;
-      
-      const newItems: SuggestionItem[] = [];
-      if (mode === "tags" || mode === "both") {
-        newItems.push(...existing.map((s: any) => ({ ...s, id: s.tagId, type: "EXISTING" })));
-      }
-      if (mode === "keywords" || mode === "both") {
-        newItems.push(...potential.map((p: any) => ({ ...p, name: p.keyword, type: "KEYWORD" })));
-      }
-
-      setSuggestions(prev => {
-        // Merge strategy: replace items of same type, keep others if mode is specific
-        if (mode === "both") return newItems;
-        const otherType = mode === "tags" ? "KEYWORD" : "EXISTING";
-        return [...prev.filter(x => x.type === otherType), ...newItems];
-      });
-
+      const newItems: SuggestionItem[] = [
+        ...existing.map((s: any) => ({ ...s, id: s.tagId, type: "EXISTING" })),
+        ...potential.map((p: any) => ({ ...p, name: p.keyword, type: "KEYWORD" }))
+      ];
+      setSuggestions(newItems);
     } catch (e: any) {
       console.error(e);
-      setError(e.response?.status === 429 ? "Rate limit exceeded." : "Failed to generate.");
+      setError(e.response?.status === 429 ? "Rate limit exceeded." : "Failed to regenerate.");
     } finally {
-       setIsGeneratingTags(false);
-       setIsGeneratingKeywords(false);
-       setIsLoading(false);
+       setIsRegenerating(false);
     }
   };
 
@@ -330,14 +324,17 @@ const SuggestionsSection: React.FC<{ contentId: string; contentBody: string }> =
         promises.push(api.post(`/content/${contentId}/tags`, { tagIds: selectedIds }));
       }
       if (selectedKeywords.length > 0) {
-        promises.push(api.post(`/content/${contentId}/potential`, { keywords: selectedKeywords }));
+        // Create tags for keywords first
+        const newTagsRes = await api.post("/tag", { 
+            tags: selectedKeywords.map(k => ({ name: k, semantic: k })) 
+        });
+        const newTagIds = newTagsRes.data.map((t: any) => t.id);
+        promises.push(api.post(`/content/${contentId}/tags`, { tagIds: newTagIds }));
       }
       await Promise.all(promises);
       
-      // Refresh tags
       await queryClient.invalidateQueries({ queryKey: ["content-tags", contentId] });
       
-      // Clear selection & remove added from list
       setSuggestions(prev => prev.filter(s => 
         (s.type === "EXISTING" && !selectedIds.includes(s.id!)) ||
         (s.type === "KEYWORD" && !selectedKeywords.includes(s.name))
@@ -363,30 +360,22 @@ const SuggestionsSection: React.FC<{ contentId: string; contentBody: string }> =
           <Sparkles size={18} className="text-purple-500" />
           AI Suggestions
         </h3>
-      </div>
-
-      <div className="flex gap-2 mb-6">
         <button 
-          onClick={() => generateSuggestions("tags")} 
-          disabled={isGeneratingTags || isLoading} 
-          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+          onClick={handleRegenerate} 
+          disabled={isRegenerating || isLoading} 
+          className="text-xs flex items-center gap-1.5 text-indigo-600 hover:bg-indigo-50 px-2 py-1.5 rounded-md transition-colors disabled:opacity-50"
         >
-          <RotateCw size={14} className={isGeneratingTags ? "animate-spin" : ""} />
-          Existing Tags
-        </button>
-        <button 
-          onClick={() => generateSuggestions("keywords")} 
-          disabled={isGeneratingKeywords || isLoading} 
-          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
-        >
-          <Sparkles size={14} className={isGeneratingKeywords ? "animate-spin" : ""} />
-          New Concepts
+          <RotateCw size={14} className={isRegenerating ? "animate-spin" : ""} />
+          Regenerate
         </button>
       </div>
 
-      {(suggestions.length > 0) && (
+      {isLoading && suggestions.length === 0 ? (
+        <div className="flex items-center justify-center py-8 text-zinc-400 text-xs gap-2">
+          <Loader2 size={14} className="animate-spin" /> Loading suggestions...
+        </div>
+      ) : suggestions.length > 0 ? (
         <div className="space-y-6">
-           {/* Actions */}
            {(selectedIds.length > 0 || selectedKeywords.length > 0) && (
              <button 
                onClick={handleAddSelected} 
@@ -419,7 +408,7 @@ const SuggestionsSection: React.FC<{ contentId: string; contentBody: string }> =
                        </div>
                        <div 
                          className="absolute bottom-0 left-0 h-0.5 bg-indigo-400/30 transition-all rounded-full" 
-                         style={{ width: `${parseFloat(s.score) * 100}%` }}
+                         style={{ width: `${s.score * 100}%` }}
                        />
                      </button>
                    );
@@ -447,12 +436,10 @@ const SuggestionsSection: React.FC<{ contentId: string; contentBody: string }> =
                          {isSelected ? <Check size={14} className="text-purple-600" /> : <Plus size={14} className="text-zinc-300 group-hover:text-purple-400" />}
                        </div>
                        
-                       {/* Similarity Bar */}
                        <div className="w-full h-1 bg-zinc-100 rounded-full mt-2 overflow-hidden">
-                         <div className="h-full bg-purple-400" style={{ width: `${parseFloat(s.score) * 100}%` }} />
+                         <div className="h-full bg-purple-400" style={{ width: `${s.score * 100}%` }} />
                        </div>
 
-                       {/* Variants */}
                        {s.variants && s.variants.length > 0 && (
                          <div className="flex flex-wrap gap-1 mt-2">
                            {s.variants.map(v => (
@@ -469,11 +456,9 @@ const SuggestionsSection: React.FC<{ contentId: string; contentBody: string }> =
              </div>
            )}
         </div>
-      )}
-      
-      {!isLoading && suggestions.length === 0 && !error && (
+      ) : !error && (
         <div className="text-center py-8 text-zinc-400 text-xs italic">
-          Click buttons above to generate suggestions.
+          No suggestions found.
         </div>
       )}
 
@@ -534,15 +519,13 @@ const ContentDetail: React.FC = () => {
       <ContentHeader content={content} onUpdate={handleContentUpdate} />
       
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-8">
-        {/* Left Column: Body */}
         <div className="min-w-0">
           <ContentBody content={content} />
         </div>
 
-        {/* Right Column: Tags & Suggestions */}
         <div className="space-y-6">
           <TagsSection contentId={content.id} />
-          <SuggestionsSection contentId={content.id} contentBody={content.body} />
+          <SuggestionsSection contentId={content.id} />
         </div>
       </div>
     </div>

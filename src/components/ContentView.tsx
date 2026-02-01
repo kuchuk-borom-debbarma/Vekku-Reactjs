@@ -33,18 +33,18 @@ interface ContentViewProps {
 }
 
 interface TagItem {
-  id: string; // UserTag ID
+  id: string;
   name: string;
-  score?: string; // For suggestions
-  linkId?: string; // For active tags (ContentTag ID)
+  score?: number; 
+  linkId?: string;
 }
 
 interface SuggestionItem {
   type: "EXISTING" | "KEYWORD";
   id?: string;
   name: string;
-  score: string;
-  variants?: string[]; // Added variants
+  score: number;
+  variants?: string[];
 }
 
 const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
@@ -52,8 +52,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
   const [tagSuggestions, setTagSuggestions] = useState<SuggestionItem[]>([]);
   const [keywordSuggestions, setKeywordSuggestions] = useState<SuggestionItem[]>([]);
   const [isLoadingTags, setIsLoadingTags] = useState(false);
-  const [isRegeneratingTags, setIsRegeneratingTags] = useState(false);
-  const [isRegeneratingKeywords, setIsRegeneratingKeywords] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   
   // Manage Tags Modal State
   const [isManageTagsOpen, setIsManageTagsOpen] = useState(false);
@@ -66,16 +65,14 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
   const [isAddingSuggestions, setIsAddingSuggestions] = useState(false);
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
 
-  const fetchTagsAndSuggestions = async (mode: "tags" | "keywords" | "both" = "both") => {
+  const fetchTagsAndSuggestions = async () => {
     if (!content.id) return;
     setIsLoadingTags(true);
     let isMounted = true;
     try {
-      // Use the generation endpoint instead of GET to ensure missing suggestions are created
-      // Send content.body as 'text' to enable immediate hash-based cache hits
       const [tagsRes, suggestionsRes] = await Promise.all([
         api.get(`/content/${content.id}/tags`),
-        api.post(`/suggestions/generate`, { contentId: content.id, text: content.body, mode }),
+        api.get(`/suggestions/content/${content.id}`),
       ]);
       
       if (!isMounted) return;
@@ -91,22 +88,14 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
       // Handle structured suggestions response
       const { existing = [], potential = [] } = suggestionsRes.data || {};
       
-      if (mode === "tags" || mode === "both") {
-        setTagSuggestions(existing.map((s: any) => ({ ...s, id: s.tagId, type: "EXISTING" })));
-      }
-      if (mode === "keywords" || mode === "both") {
-        setKeywordSuggestions(potential.map((p: any) => ({ ...p, name: p.keyword, type: "KEYWORD" })));
-      }
+      setTagSuggestions(existing.map((s: any) => ({ ...s, id: s.tagId, type: "EXISTING" })));
+      setKeywordSuggestions(potential.map((p: any) => ({ ...p, name: p.keyword, type: "KEYWORD" })));
       
       // Initialize selected tags for the manager
       setSelectedTagIds(currentTags.map((t: TagItem) => t.id));
     } catch (error: any) {
       if (!isMounted) return;
       console.error("Failed to fetch tags and suggestions:", error);
-      if (error.response?.status === 429) {
-        // If we hit rate limit on auto-load, we still show the active tags but maybe set an error for suggestions
-        console.warn("AI rate limit hit during auto-load.");
-      }
     } finally {
       if (isMounted) {
         setIsLoadingTags(false);
@@ -117,13 +106,12 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
 
   const handleOpenChange = (open: boolean) => {
     if (open) {
-      fetchTagsAndSuggestions("both");
+      fetchTagsAndSuggestions();
       setSelectedSuggestionIds([]);
       setSelectedKeywordNames([]);
     }
   };
 
-  // Update selected IDs when active tags change
   useEffect(() => {
      setSelectedTagIds(activeTags.map(t => t.id));
   }, [activeTags]);
@@ -159,7 +147,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
       }
 
       await Promise.all(promises);
-      await fetchTagsAndSuggestions("both");
+      await fetchTagsAndSuggestions();
       setIsManageTagsOpen(false);
     } catch (error) {
       console.error("Failed to save tags:", error);
@@ -183,8 +171,6 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
       }
       return s;
     }));
-    
-    // Also update selection if the original was selected
     setSelectedKeywordNames(prev => prev.map(k => k === originalName ? newName : k));
   };
 
@@ -193,7 +179,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
     setIsAddingSuggestions(true);
     try {
       await api.post(`/content/${content.id}/potential`, { keywords: selectedKeywordNames });
-      await fetchTagsAndSuggestions("both");
+      await fetchTagsAndSuggestions();
       setSelectedKeywordNames([]);
     } catch (error) {
       console.error("Failed to add selected keywords:", error);
@@ -203,7 +189,6 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
   };
 
   const toggleSuggestion = (tagId: string) => {
-    console.log("[ContentView] Toggling suggestion:", tagId);
     setSelectedSuggestionIds(prev => 
       prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
     );
@@ -214,7 +199,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
     setIsAddingSuggestions(true);
     try {
       await api.post(`/content/${content.id}/tags`, { tagIds: selectedSuggestionIds });
-      await fetchTagsAndSuggestions("both"); 
+      await fetchTagsAndSuggestions(); 
       setSelectedSuggestionIds([]);
     } catch (error) {
       console.error("Failed to add selected suggestions:", error);
@@ -223,51 +208,23 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
     }
   };
 
-  const handleSuggestTags = async () => {
-    setIsRegeneratingTags(true);
+  const handleRegenerate = async () => {
+    setIsRegenerating(true);
     setSuggestionError(null);
     try {
-      const res = await api.post("/suggestions/generate", { 
-        contentId: content.id, 
-        text: content.body, 
-        mode: "tags" 
-      });
+      const res = await api.post(`/suggestions/content/${content.id}/regenerate`);
       const { existing = [], potential = [] } = res.data || {};
       setTagSuggestions(existing.map((s: any) => ({ ...s, id: s.tagId, type: "EXISTING" })));
       setKeywordSuggestions(potential.map((p: any) => ({ ...p, name: p.keyword, type: "KEYWORD" })));
     } catch (error: any) {
-      console.error("Failed to generate tags:", error);
+      console.error("Failed to regenerate:", error);
       if (error.response?.status === 429) {
-        setSuggestionError("AI rate limit exceeded for tags. Please wait a minute.");
+        setSuggestionError("Rate limit exceeded. Please wait.");
       } else {
-        setSuggestionError("Failed to suggest tags.");
+        setSuggestionError("Failed to regenerate suggestions.");
       }
     } finally {
-      setIsRegeneratingTags(false);
-    }
-  };
-
-  const handleDiscoverPotential = async () => {
-    setIsRegeneratingKeywords(true);
-    setSuggestionError(null);
-    try {
-      const res = await api.post("/suggestions/generate", { 
-        contentId: content.id, 
-        text: content.body, 
-        mode: "keywords" 
-      });
-      const { existing = [], potential = [] } = res.data || {};
-      setTagSuggestions(existing.map((s: any) => ({ ...s, id: s.tagId, type: "EXISTING" })));
-      setKeywordSuggestions(potential.map((p: any) => ({ ...p, name: p.keyword, type: "KEYWORD" })));
-    } catch (error: any) {
-      console.error("Failed to discover keywords:", error);
-      if (error.response?.status === 429) {
-        setSuggestionError("AI rate limit exceeded for potential tags. Please wait a minute.");
-      } else {
-        setSuggestionError("Failed to discover new keywords.");
-      }
-    } finally {
-      setIsRegeneratingKeywords(false);
+      setIsRegenerating(false);
     }
   };
 
@@ -278,10 +235,8 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
     
   const displayedKeywordSuggestions = keywordSuggestions
     .filter((k) => {
-      // Ignore empty, whitespace, or single-character noise
       if (!k.name || k.name.trim().length < 2) return false;
       const lowerName = k.name.trim().toLowerCase();
-      // Case-insensitive check against active tags
       return !activeTags.some((active) => active.name.toLowerCase() === lowerName);
     })
     .slice(0, 10);
@@ -391,16 +346,10 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                     {!isAddingSuggestions && <Plus size={12} />}
                   </button>
                 )}
-                <div className="flex gap-1">
-                  <button onClick={handleSuggestTags} disabled={isRegeneratingTags || isLoadingTags} className="text-xs flex items-center gap-1.5 text-indigo-600 hover:bg-indigo-50 px-2 py-1.5 rounded-md transition-colors disabled:opacity-50" title="Suggest Existing Tags">
-                    <RotateCw size={12} className={isRegeneratingTags ? "animate-spin" : ""} />
-                    Find Existing
-                  </button>
-                  <button onClick={handleDiscoverPotential} disabled={isRegeneratingKeywords || isLoadingTags} className="text-xs flex items-center gap-1.5 text-purple-600 hover:bg-purple-50 px-2 py-1.5 rounded-md transition-colors disabled:opacity-50" title="Extract New Keywords">
-                    <Sparkles size={12} className={isRegeneratingKeywords ? "animate-spin" : ""} />
-                    Discover New
-                  </button>
-                </div>
+                <button onClick={handleRegenerate} disabled={isRegenerating || isLoadingTags} className="text-xs flex items-center gap-1.5 text-indigo-600 hover:bg-indigo-50 px-2 py-1.5 rounded-md transition-colors disabled:opacity-50" title="Regenerate Suggestions">
+                  <RotateCw size={12} className={isRegenerating ? "animate-spin" : ""} />
+                  Regenerate
+                </button>
               </div>
             </div>
             
@@ -412,7 +361,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
               )}
               {(displayedTagSuggestions.length > 0 || displayedKeywordSuggestions.length > 0) && (
                 <p className="text-[10px] text-indigo-400 font-medium italic border-b border-indigo-100 pb-2 mb-3">
-                  Note: A more filled bar indicates a higher semantic match accuracy.
+                  Note: A higher bar indicates a stronger semantic relevance.
                 </p>
               )}
               <div className="space-y-4">
@@ -426,10 +375,10 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                           <button key={tag.id} onClick={() => toggleSuggestion(tag.id!)} className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border shadow-sm transition-all ${isSelected ? "bg-indigo-600 text-white border-indigo-700" : "bg-white text-indigo-700 border-indigo-200 hover:shadow-md hover:-translate-y-0.5"}`}>
                             {isSelected && <Check size={12} className="text-indigo-600" />}
                             {tag.name}
-                            <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5 pointer-events-none" title={`Match Similarity: ${tag.score}`}>
+                            <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5 pointer-events-none" title={`Match Score: ${tag.score}`}>
                               <div 
                                 className={`h-full transition-all ${isSelected ? "bg-white" : "bg-indigo-500"}`} 
-                                style={{ width: `${Math.max(10, Math.min(100, parseFloat(tag.score) * 100))}%` }} 
+                                style={{ width: `${Math.max(10, Math.min(100, tag.score * 100))}%` }} 
                               />
                             </div>
                           </button>
@@ -447,7 +396,6 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                         const isSelected = selectedKeywordNames.includes(kw.name);
                         return (
                           <div key={kw.name} className={`relative flex flex-col bg-white border rounded-lg p-3 transition-all ${isSelected ? "border-purple-400 ring-1 ring-purple-400 shadow-sm" : "border-indigo-100 hover:border-purple-300 hover:shadow-sm"}`}>
-                            {/* Primary Header */}
                             <div className="flex justify-between items-start gap-2 mb-2">
                                 <span className="text-xs font-bold text-purple-900 leading-tight break-words">{kw.name}</span>
                                 <button 
@@ -458,15 +406,13 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                                 </button>
                             </div>
 
-                            {/* Score Bar */}
-                            <div className="w-full h-1 bg-zinc-100 rounded-full overflow-hidden mb-3 pointer-events-none" title={`Match Similarity: ${kw.score}`}>
+                            <div className="w-full h-1 bg-zinc-100 rounded-full overflow-hidden mb-3 pointer-events-none" title={`Match Score: ${kw.score}`}>
                                 <div 
                                   className={`h-full transition-all ${isSelected ? "bg-purple-500" : "bg-purple-300"}`} 
-                                  style={{ width: `${Math.max(10, Math.min(100, parseFloat(kw.score) * 100))}%` }} 
+                                  style={{ width: `${Math.max(10, Math.min(100, kw.score * 100))}%` }} 
                                 />
                             </div>
                             
-                            {/* Variants Section */}
                             {kw.variants && kw.variants.length > 0 ? (
                               <div className="mt-auto pt-2 border-t border-dashed border-zinc-100">
                                 <p className="text-[9px] text-zinc-400 mb-1.5 font-medium">Alternatives:</p>
@@ -494,7 +440,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
                 )}
 
 
-                {hasNoSuggestions && !isLoadingTags && !isRegeneratingTags && !isRegeneratingKeywords && (
+                {hasNoSuggestions && !isLoadingTags && !isRegenerating && (
                    <div className="text-center text-zinc-400 text-sm py-4 italic">No suggestions found.</div>
                 )}
               </div>

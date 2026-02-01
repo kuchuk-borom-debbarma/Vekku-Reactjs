@@ -7,7 +7,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Check, ArrowRight, ArrowLeft, Sparkles, ExternalLink, RotateCw } from "lucide-react";
+import { Plus, Check, ArrowRight, ArrowLeft, ExternalLink, RotateCw } from "lucide-react";
 import api from "@/lib/api";
 import TagSelector from "@/components/TagSelector";
 import ReactMarkdown from "react-markdown";
@@ -22,18 +22,17 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"content" | "preview" | "tags">("content");
   const [title, setTitle] = useState("");
-  const [content, setContent] = useState(""); // Holds Body or YouTube URL
-  const [description, setDescription] = useState(""); // For YouTube user description
-  const [transcript, setTranscript] = useState(""); // For YouTube transcript
+  const [content, setContent] = useState(""); 
+  const [description, setDescription] = useState(""); 
+  const [transcript, setTranscript] = useState(""); 
   const [isFetchingInfo, setIsFetchingInfo] = useState(false);
   const [contentType, setContentType] = useState("PLAIN_TEXT");
   const [view, setView] = useState<"write" | "preview">("write");
 
   // Extraction State
-  const [isExtractingTags, setIsExtractingTags] = useState(false);
-  const [isExtractingKeywords, setIsExtractingKeywords] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [suggestedTags, setSuggestedTags] = useState<any[]>([]);
-  const [extractedKeywords, setExtractedKeywords] = useState<{keyword: string, score: string, variants: string[]}[]>([]);
+  const [extractedKeywords, setExtractedKeywords] = useState<{keyword: string, score: number, variants: string[]}[]>([]);
   
   // Selection State (Local until save)
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
@@ -54,7 +53,6 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
       setIsFetchingInfo(true);
       try {
-        // Try direct browser fetch first (CORS supported by YouTube OEmbed)
         const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(content)}&format=json`);
         if (response.ok) {
           const data = await response.json();
@@ -62,7 +60,6 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
             setTitle(data.title);
           }
         } else {
-          // Fallback to backend if direct fetch fails
           const res = await api.post("/youtube/info", { url: content });
           if (res.data?.title && !title) {
             setTitle(res.data.title);
@@ -75,7 +72,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
       }
     };
 
-    const timer = setTimeout(fetchTitle, 500); // Debounce
+    const timer = setTimeout(fetchTitle, 500); 
     return () => clearTimeout(timer);
   }, [content, contentType]);
 
@@ -105,7 +102,6 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   const handleNextStep = async (e: React.FormEvent) => {
     if (e) e.preventDefault();
     
-    // --- Step 1: Content -> Preview (YouTube) or Tags (Text) ---
     if (step === "content") {
       if (contentType !== "YOUTUBE_VIDEO" && !title) {
           setError("Title is required.");
@@ -127,7 +123,6 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
         setIsFetchingInfo(true);
         try {
-          // Fetch basic metadata (Title)
           const res = await api.post("/youtube/info", { url: content });
           if (res.data?.title && !title) {
             setTitle(res.data.title);
@@ -138,18 +133,16 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
           setIsFetchingInfo(false);
         }
         
-        // Open helper sites in new tabs
         window.open(`https://tactiq.io/tools/run/youtube_transcript?yt=${encodeURIComponent(content)}`, "_blank");
         
         setStep("preview");
       } else {
         setStep("tags");
-        handleGenerateSuggestions("both");
+        handleGenerateSuggestions();
       }
       return;
     }
 
-    // --- Step 2: Preview -> Tags ---
     if (step === "preview") {
       if (!transcript) {
           setError("Please paste the transcript first.");
@@ -157,43 +150,35 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
       }
       setError("");
       setStep("tags");
-      handleGenerateSuggestions("both");
+      handleGenerateSuggestions();
       return;
     }
   };
 
-  const handleGenerateSuggestions = async (mode: "tags" | "keywords" | "both" = "both") => {
-    if (mode === "tags" || mode === "both") setIsExtractingTags(true);
-    if (mode === "keywords" || mode === "both") setIsExtractingKeywords(true);
+  const handleGenerateSuggestions = async () => {
+    setIsExtracting(true);
     setSuggestionError("");
     
-    // Prepare text for suggestion engine: Always include Title for context
     let textToAnalyze = title ? `${title}\n\n${content}` : content;
     if (contentType === "YOUTUBE_VIDEO") {
         textToAnalyze = `${title}\n\n${description}\n\n${transcript || ""}`;
     }
 
     try {
-      const res = await api.post("/suggestions/generate", { text: textToAnalyze, mode });
+      const res = await api.post("/suggestions/analyze", { text: textToAnalyze });
       const { existing = [], potential = [] } = res.data || {};
-      
-      if (mode === "tags" || mode === "both") {
-        setSuggestedTags(existing);
-      }
-      if (mode === "keywords" || mode === "both") {
-        setExtractedKeywords(potential);
-      }
+      setSuggestedTags(existing);
+      setExtractedKeywords(potential);
     } catch (err: any) {
       console.error("Failed to suggest tags:", err);
       if (err.response?.status === 429) {
-        setSuggestionError("AI rate limit exceeded. Please wait a minute.");
+        setSuggestionError("AI rate limit exceeded. Please wait.");
       } else {
         setSuggestionError("Failed to fetch suggestions.");
       }
     }
     finally {
-      if (mode === "tags" || mode === "both") setIsExtractingTags(false);
-      if (mode === "keywords" || mode === "both") setIsExtractingKeywords(false);
+      setIsExtracting(false);
     }
   };
 
@@ -215,14 +200,12 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
   };
 
   const handleTagClick = (tagId: string) => {
-    console.log("[CreateModal] Toggling tag:", tagId);
     setSelectedTagIds(prev => 
       prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
     );
   };
 
   const toggleTag = (tagId: string) => {
-    console.log("[CreateModal] Toggling tag from selector:", tagId);
     setSelectedTagIds((prev) =>
       prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId],
     );
@@ -234,13 +217,11 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
     try {
       let finalTagIds = [...selectedTagIds];
 
-      // Parse custom manual tags
       const manualTags = customTagsInput
         .split(",")
         .map((t) => t.trim())
         .filter((t) => t.length > 0);
 
-      // Combine with selected AI keywords and deduplicate
       const allNewTags = Array.from(new Set([...selectedKeywords, ...manualTags]));
 
       if (allNewTags.length > 0) {
@@ -250,8 +231,6 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
         const newTagIds = (createTagsRes.data || []).map((t: any) => t.id);
         finalTagIds = [...finalTagIds, ...newTagIds];
       }
-
-      console.log("[CreateModal] Submitting with Tag IDs:", finalTagIds);
 
       if (contentType === "YOUTUBE_VIDEO") {
         await api.post("/content/youtube", {
@@ -464,29 +443,20 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
 
              <div className="flex items-center justify-between mb-2 gap-2">
                <div className="text-sm text-zinc-500 font-medium">Tag Recommendations</div>
-               <div className="flex gap-2">
-                 <button 
-                   onClick={() => handleGenerateSuggestions("tags")} 
-                   disabled={isExtractingTags} 
-                   className="text-xs flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 bg-indigo-50 rounded-full hover:bg-indigo-100 transition-colors disabled:opacity-50"
-                 >
-                   <RotateCw size={12} className={isExtractingTags ? "animate-spin" : ""} /> Find Existing
-                 </button>
-                 <button 
-                   onClick={() => handleGenerateSuggestions("keywords")} 
-                   disabled={isExtractingKeywords} 
-                   className="text-xs flex items-center gap-1.5 text-purple-600 hover:text-purple-700 font-medium px-2 py-1 bg-purple-50 rounded-full hover:bg-purple-100 transition-colors disabled:opacity-50"
-                 >
-                   <Sparkles size={12} className={isExtractingKeywords ? "animate-spin" : ""} /> Discover New
-                 </button>
-               </div>
+               <button 
+                 onClick={handleGenerateSuggestions} 
+                 disabled={isExtracting} 
+                 className="text-xs flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-medium px-2 py-1 bg-indigo-50 rounded-full hover:bg-indigo-100 transition-colors disabled:opacity-50"
+               >
+                 <RotateCw size={12} className={isExtracting ? "animate-spin" : ""} /> Regenerate
+               </button>
              </div>
 
              <div className="bg-zinc-50/50 rounded-xl p-4 border border-zinc-100 space-y-4 min-h-[100px]">
                 {suggestionError && <div className="mb-2 p-2 bg-red-50 text-red-600 text-xs rounded border border-red-100">{suggestionError}</div>}
                 {(suggestedTags.length > 0 || extractedKeywords.length > 0) && (
                   <p className="text-[10px] text-zinc-400 font-medium italic border-b border-zinc-100 pb-2 mb-2">
-                    Note: A more filled bar indicates a higher semantic match accuracy.
+                    Note: A higher bar indicates a stronger semantic relevance.
                   </p>
                 )}
 
@@ -507,8 +477,8 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                             {isSelected ? <Check size={12} /> : <Plus size={12} />} {tag.name}
                             <div className="w-8 h-1 bg-black/10 rounded-full overflow-hidden ml-1.5 border border-black/5 pointer-events-none">
                               <div 
-                                className={`h-full transition-all ${isSelected ? "bg-white" : "bg-indigo-500"}`} 
-                                style={{ width: `${Math.max(10, Math.min(100, parseFloat(tag.score) * 100))}%` }} 
+                                className={`h-full transition-all ${isSelected ? "bg-white" : "bg-indigo-500"}`}
+                                style={{ width: `${Math.max(10, Math.min(100, tag.score * 100))}%` }}
                               />
                             </div>
                           </button>
@@ -537,7 +507,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                               </button>
                             </div>
                             <div className="w-full h-1 bg-zinc-100 rounded-full overflow-hidden mb-3 pointer-events-none">
-                              <div className={`h-full transition-all ${isSelected ? "bg-purple-500" : "bg-purple-300"}`} style={{ width: `${Math.max(10, Math.min(100, parseFloat(kw.score) * 100))}%` }} />
+                              <div className={`h-full transition-all ${isSelected ? "bg-purple-500" : "bg-purple-300"}`} style={{ width: `${Math.max(10, Math.min(100, kw.score * 100))}%` }} />
                             </div>
                             {kw.variants && kw.variants.length > 0 && (
                               <div className="mt-auto pt-2 border-t border-dashed border-zinc-100">
@@ -558,8 +528,8 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
                   </div>
                 )}
 
-                {suggestedTags.length === 0 && extractedKeywords.length === 0 && !isExtractingTags && !isExtractingKeywords && (
-                  <p className="text-sm text-zinc-400 italic text-center py-4">No suggestions yet. Provide content and click buttons above.</p>
+                {suggestedTags.length === 0 && extractedKeywords.length === 0 && !isExtracting && (
+                  <p className="text-sm text-zinc-400 italic text-center py-4">No suggestions yet. Provide content and click button above.</p>
                 )}
              </div>
 
