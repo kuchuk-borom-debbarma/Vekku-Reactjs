@@ -370,7 +370,7 @@ const Contents: React.FC = () => {
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <Link 
                       to={`/content/${content.id}`}
-                      className="text-sm font-semibold text-zinc-900 hover:text-indigo-600 cursor-pointer line-clamp-2 leading-snug"
+                      className="text-sm font-semibold text-zinc-900 hover:text-indigo-600 cursor-pointer leading-snug"
                     >
                       {content.title || "Untitled"}
                     </Link>
