@@ -235,7 +235,7 @@ const TagsSection: React.FC<{ contentId: string }> = ({ contentId }) => {
 
       {/* Manage Modal */}
       <Dialog open={isManageOpen} onOpenChange={setIsManageOpen}>
-        <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+        <DialogContent aria-describedby={undefined} className="max-w-md max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Manage Tags</DialogTitle>
           </DialogHeader>

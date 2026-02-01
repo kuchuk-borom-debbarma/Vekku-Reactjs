@@ -450,7 +450,7 @@ const ContentView: React.FC<ContentViewProps> = ({ content, trigger }) => {
       </Sheet>
 
       <Dialog open={isManageTagsOpen} onOpenChange={setIsManageTagsOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent aria-describedby={undefined} className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Manage Content Tags</DialogTitle>
           </DialogHeader>

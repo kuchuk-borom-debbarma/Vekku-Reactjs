@@ -272,7 +272,7 @@ const CreateContentModal: React.FC<CreateContentModalProps> = ({ onContentCreate
           </button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent aria-describedby={undefined} className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {step === "content" ? "Step 1: Write Content" : step === "preview" ? "Step 2: Provide Transcript" : "Step 3: Add Tags"}
