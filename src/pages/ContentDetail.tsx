@@ -271,6 +271,20 @@ const SuggestionsSection: React.FC<{ contentId: string }> = ({ contentId }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
 
+  // Fetch Active Tags to filter suggestions
+  const { data: activeTags = [] } = useQuery({
+    queryKey: ["content-tags", contentId],
+    queryFn: async () => {
+      const res = await api.get(`/content/${contentId}/tags`);
+      return (res.data.data || []).map((t: any) => ({
+        id: t.tagId,
+        name: t.name,
+        linkId: t.id
+      })) as TagItem[];
+    },
+    staleTime: 1000 * 60 * 5, 
+  });
+
   useEffect(() => {
     if (contentId) {
        fetchSuggestions();
@@ -335,6 +349,8 @@ const SuggestionsSection: React.FC<{ contentId: string }> = ({ contentId }) => {
       
       await queryClient.invalidateQueries({ queryKey: ["content-tags", contentId] });
       
+      // Update suggestions list immediately to remove added ones
+      // (Though the re-render with new activeTags will also filter them)
       setSuggestions(prev => prev.filter(s => 
         (s.type === "EXISTING" && !selectedIds.includes(s.id!)) ||
         (s.type === "KEYWORD" && !selectedKeywords.includes(s.name))
@@ -350,8 +366,17 @@ const SuggestionsSection: React.FC<{ contentId: string }> = ({ contentId }) => {
     }
   };
 
-  const existingSuggestions = suggestions.filter(s => s.type === "EXISTING");
-  const keywordSuggestions = suggestions.filter(s => s.type === "KEYWORD");
+  // Filter out tags that are already active
+  const existingSuggestions = suggestions
+    .filter(s => s.type === "EXISTING")
+    .filter(s => !activeTags.some(t => t.id === s.id));
+
+  const keywordSuggestions = suggestions
+    .filter(s => s.type === "KEYWORD")
+    .filter(k => {
+        const lowerName = k.name.trim().toLowerCase();
+        return !activeTags.some(t => t.name.toLowerCase() === lowerName);
+    });
 
   return (
     <div className="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm mt-6">
@@ -374,7 +399,7 @@ const SuggestionsSection: React.FC<{ contentId: string }> = ({ contentId }) => {
         <div className="flex items-center justify-center py-8 text-zinc-400 text-xs gap-2">
           <Loader2 size={14} className="animate-spin" /> Loading suggestions...
         </div>
-      ) : suggestions.length > 0 ? (
+      ) : (existingSuggestions.length > 0 || keywordSuggestions.length > 0) ? (
         <div className="space-y-6">
            {(selectedIds.length > 0 || selectedKeywords.length > 0) && (
              <button 
@@ -519,10 +544,12 @@ const ContentDetail: React.FC = () => {
       <ContentHeader content={content} onUpdate={handleContentUpdate} />
       
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-8">
+        {/* Left Column: Body */}
         <div className="min-w-0">
           <ContentBody content={content} />
         </div>
 
+        {/* Right Column: Tags & Suggestions */}
         <div className="space-y-6">
           <TagsSection contentId={content.id} />
           <SuggestionsSection contentId={content.id} />
