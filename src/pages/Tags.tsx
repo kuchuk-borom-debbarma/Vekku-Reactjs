@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Tag, Search, X, Loader2, Sparkles, MoreHorizontal } from "lucide-react";
-import api from "@/lib/api";
+import { Tag, Search, X, Trash2, Loader2, Sparkles, MoreHorizontal, ChevronLeft, ChevronRight, CheckSquare, Square } from "lucide-react";
+import api, { bulkDeleteTags } from "@/lib/api";
 import CreateTagModal from "@/components/CreateTagModal";
 import EditTagModal from "@/components/EditTagModal";
 import {
@@ -15,83 +15,237 @@ interface TagData {
   id: string;
   name: string;
   semantic: string;
+  createdAt: string;
   _count?: {
     contents: number;
   };
 }
+
+interface PaginationMetadata {
+  nextChunkId: string | null;
+  chunkSize: number;
+  chunkTotalItems: number;
+  limit: number;
+  offset: number;
+}
+
+const LIMIT = 20;
 
 const Tags: React.FC = () => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
+  // Pagination State
+  const [offset, setOffset] = useState(0);
+  const [chunkId, setChunkId] = useState<string | undefined>(undefined);
+  const [chunkStack, setChunkStack] = useState<string[]>([]); // To go back to previous chunks
+
+  // Selection State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(searchQuery);
+      setOffset(0); 
+      setChunkId(undefined);
+      setChunkStack([]);
+      setSelectedIds(new Set());
     }, 500);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const { data: tags = [], isLoading, error } = useQuery({
-    queryKey: ["tags", debouncedQuery],
+  const { data: response, isLoading, error, refetch } = useQuery({
+    queryKey: ["tags", { offset, chunkId, debouncedQuery }],
     queryFn: async () => {
-      const res = await api.get("/tags");
-      let data: TagData[] = res.data.data || res.data;
-      
-      if (debouncedQuery) {
-        data = data.filter(tag => 
-          tag.name.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
-          tag.semantic.toLowerCase().includes(debouncedQuery.toLowerCase())
-        );
-      }
-      return data;
-    }
+      const params = new URLSearchParams({
+        limit: LIMIT.toString(),
+        offset: offset.toString(),
+      });
+      if (chunkId) params.append("chunkId", chunkId);
+      if (debouncedQuery) params.append("q", debouncedQuery);
+
+      const res = await api.get(`/tag?${params.toString()}`);
+      return res.data;
+    },
   });
+
+  const tags = (response?.data || []) as TagData[];
+  const metadata = response?.metadata as PaginationMetadata | null;
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["tags"] });
+    setSelectedIds(new Set());
+  };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this tag?")) return;
     try {
-      await api.delete(`/tags/${id}`);
-      queryClient.invalidateQueries({ queryKey: ["tags"] });
+      await api.delete(`/tag/${id}`);
+      handleRefresh();
     } catch (error) {
       console.error("Failed to delete tag", error);
+      alert("Failed to delete tag");
     }
   };
+
+  const handleToggleSelection = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleSelectAllInView = () => {
+    if (tags.length === 0) return;
+    const allInViewSelected = tags.every((t) => selectedIds.has(t.id));
+    const newSelected = new Set(selectedIds);
+    
+    if (allInViewSelected) {
+      tags.forEach((t) => newSelected.delete(t.id));
+    } else {
+      tags.forEach((t) => newSelected.add(t.id));
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleBulkDelete = async (deleteAll: boolean = false) => {
+    const count = deleteAll ? "ALL TAGS" : `${selectedIds.size} selected tags`;
+    if (!confirm(`Are you sure you want to delete ${count}? This cannot be undone.`)) return;
+
+    try {
+      if (deleteAll) {
+        await bulkDeleteTags("*");
+      } else {
+        await bulkDeleteTags(Array.from(selectedIds));
+      }
+      handleRefresh();
+    } catch (error) {
+      console.error("Failed to bulk delete:", error);
+      alert("Failed to delete tags.");
+    }
+  };
+
+  const handleNext = () => {
+    if (!metadata) return;
+
+    if (debouncedQuery) {
+      if (offset + LIMIT < metadata.chunkTotalItems) {
+        setOffset(offset + LIMIT);
+      }
+    } else {
+      if (offset + LIMIT < metadata.chunkTotalItems) {
+        setOffset(offset + LIMIT);
+      } else if (metadata.nextChunkId) {
+        setChunkStack([...chunkStack, chunkId || ""]);
+        setChunkId(metadata.nextChunkId);
+        setOffset(0);
+      }
+    }
+    setSelectedIds(new Set());
+  };
+
+  const handlePrev = () => {
+    if (debouncedQuery) {
+      if (offset - LIMIT >= 0) {
+        setOffset(offset - LIMIT);
+      }
+    } else {
+      if (offset - LIMIT >= 0) {
+        setOffset(offset - LIMIT);
+      } else if (chunkStack.length > 0) {
+        const prevStack = [...chunkStack];
+        const prevChunk = prevStack.pop();
+        setChunkStack(prevStack);
+        setChunkId(prevChunk === "" ? undefined : prevChunk);
+        setOffset(0);
+      }
+    }
+    setSelectedIds(new Set());
+  };
+
+  const canGoNext = metadata ? (
+    debouncedQuery 
+      ? offset + LIMIT < metadata.chunkTotalItems 
+      : (offset + LIMIT < metadata.chunkTotalItems || !!metadata.nextChunkId)
+  ) : false;
+
+  const canGoPrev = debouncedQuery ? offset > 0 : (offset > 0 || chunkStack.length > 0);
+  const allInViewSelected = tags.length > 0 && tags.every((t) => selectedIds.has(t.id));
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Tags</h1>
-        <CreateTagModal onTagCreated={() => queryClient.invalidateQueries({ queryKey: ["tags"] })} />
-      </div>
-
-      {/* Toolbar */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
-          <input
-            type="text"
-            placeholder="Search tags..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-9 py-2 bg-white border border-zinc-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent shadow-sm"
-          />
-          {searchQuery && (
-            <button 
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
-            >
-              <X size={14} />
-            </button>
-          )}
+        <div className="flex items-center gap-2">
+           <CreateTagModal onTagCreated={handleRefresh} />
         </div>
       </div>
+
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 ? (
+        <div className="flex items-center justify-between bg-zinc-900 text-white px-4 py-2 rounded-md shadow-sm">
+          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => handleBulkDelete(false)}
+              className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 rounded text-white font-medium transition-colors"
+            >
+              Delete Selected
+            </button>
+            <button 
+              onClick={() => setSelectedIds(new Set())}
+              className="px-3 py-1.5 text-xs text-zinc-300 hover:text-white"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Toolbar */
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
+            <input
+              type="text"
+              placeholder="Search tags..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-9 py-2 bg-white border border-zinc-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent shadow-sm"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <button 
+            onClick={() => handleBulkDelete(true)}
+            className="flex items-center justify-center sm:justify-start gap-2 px-5 py-2.5 rounded-md text-sm font-bold transition-all bg-white border border-zinc-200 text-zinc-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 ml-auto"
+            title="Delete ALL Tags"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Tags Grid/List */}
       <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-[1fr_auto] gap-4 px-6 py-3 border-b border-zinc-100 bg-zinc-50/50 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+        <div className="grid grid-cols-[auto_1fr_auto] gap-4 px-6 py-3 border-b border-zinc-100 bg-zinc-50/50 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+          <div className="flex items-center">
+             <button onClick={handleSelectAllInView} className="hover:text-zinc-800">
+               {allInViewSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+             </button>
+          </div>
           <div>Tag Details</div>
           <div className="text-right">Actions</div>
         </div>
@@ -102,7 +256,22 @@ const Tags: React.FC = () => {
             <p className="text-sm">Loading tags...</p>
           </div>
         ) : error ? (
-          <div className="p-12 text-center text-red-500 text-sm">Failed to load tags.</div>
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+             <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-3">
+               <span className="text-red-600 font-bold">!</span>
+             </div>
+             <p className="font-medium text-zinc-900 px-4">
+               {(error as any).response?.status === 429 
+                 ? "Rate limit exceeded. Please wait a moment." 
+                 : "Failed to load tags. Please try again later."}
+             </p>
+             <button 
+               onClick={() => refetch()}
+               className="mt-4 text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+             >
+               Try again
+             </button>
+           </div>
         ) : tags.length === 0 ? (
           <div className="p-16 text-center">
             <div className="w-10 h-10 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-3 text-zinc-400">
@@ -116,8 +285,19 @@ const Tags: React.FC = () => {
             {tags.map((tag: TagData) => (
               <div 
                 key={tag.id} 
-                className="group grid grid-cols-[1fr_auto] gap-4 px-6 py-4 items-center hover:bg-zinc-50 transition-colors"
+                className={`group grid grid-cols-[auto_1fr_auto] gap-4 px-6 py-4 items-center transition-colors ${
+                  selectedIds.has(tag.id) ? "bg-indigo-50/30" : "hover:bg-zinc-50"
+                }`}
               >
+                <div className="flex items-center">
+                  <button 
+                    onClick={() => handleToggleSelection(tag.id)}
+                    className={`text-zinc-400 hover:text-zinc-600 ${selectedIds.has(tag.id) ? "text-indigo-600" : ""}`}
+                  >
+                    {selectedIds.has(tag.id) ? <CheckSquare size={16} /> : <Square size={16} />}
+                  </button>
+                </div>
+
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-sm font-medium text-zinc-900">{tag.name}</span>
@@ -142,7 +322,7 @@ const Tags: React.FC = () => {
                       <div onClick={(e) => e.stopPropagation()}>
                         <EditTagModal 
                           tag={tag} 
-                          onTagUpdated={() => queryClient.invalidateQueries({ queryKey: ["tags"] })}
+                          onTagUpdated={() => handleRefresh()}
                           trigger={
                             <div className="w-full flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-zinc-100 rounded-sm cursor-pointer">
                                <span>Edit</span>
@@ -159,6 +339,31 @@ const Tags: React.FC = () => {
               </div>
             ))}
           </div>
+        )}
+
+        {/* Pagination Footer */}
+        {tags.length > 0 && (
+          <div className="border-t border-zinc-100 px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-center justify-between bg-zinc-50/50 gap-3">
+             <span className="text-[10px] sm:text-xs text-zinc-500">
+                Showing {offset + 1}-{Math.min(offset + LIMIT, metadata?.chunkTotalItems || 0)} of {metadata?.chunkTotalItems || 0}
+             </span>
+             <div className="flex items-center gap-2">
+               <button
+                 onClick={handlePrev}
+                 disabled={!canGoPrev || isLoading}
+                 className="p-1.5 rounded-md bg-white shadow-sm border border-zinc-200 disabled:opacity-30 disabled:pointer-events-none transition-all text-zinc-600"
+               >
+                 <ChevronLeft size={16} />
+               </button>
+               <button
+                 onClick={handleNext}
+                 disabled={!canGoNext || isLoading}
+                 className="p-1.5 rounded-md bg-white shadow-sm border border-zinc-200 disabled:opacity-30 disabled:pointer-events-none transition-all text-zinc-600"
+               >
+                 <ChevronRight size={16} />
+               </button>
+             </div>
+           </div>
         )}
       </div>
     </div>
