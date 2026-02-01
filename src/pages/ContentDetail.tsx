@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
@@ -275,6 +275,12 @@ const SuggestionsSection: React.FC<{ contentId: string; contentBody: string }> =
   // Initial fetch could be manual or auto. Let's make it manual or "on mount if empty"
   // But request says "independent loading". We can auto-fetch on mount.
   
+  useEffect(() => {
+    if (contentId && contentBody) {
+       generateSuggestions("both");
+    }
+  }, [contentId, contentBody]);
+
   const generateSuggestions = async (mode: "tags" | "keywords" | "both") => {
     if (mode === "tags") setIsGeneratingTags(true);
     else if (mode === "keywords") setIsGeneratingKeywords(true);
