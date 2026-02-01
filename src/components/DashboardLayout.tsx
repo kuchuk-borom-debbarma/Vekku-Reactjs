@@ -32,8 +32,11 @@ const DashboardLayout: React.FC = () => {
           <div className="flex items-center gap-4">
              <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 outline-none">
-                  <div className="w-8 h-8 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-600 hover:bg-zinc-200 transition-colors">
+                <button className="flex items-center gap-2.5 outline-none group cursor-pointer">
+                  <span className="text-sm font-medium text-zinc-700 group-hover:text-zinc-900 transition-colors hidden sm:inline-block">
+                    {user?.name || "User"}
+                  </span>
+                  <div className="w-8 h-8 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-600 group-hover:bg-zinc-200 group-hover:text-zinc-900 transition-all shadow-sm">
                     <User size={16} />
                   </div>
                 </button>
