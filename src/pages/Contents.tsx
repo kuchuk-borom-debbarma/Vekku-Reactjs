@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Filter, X, CheckSquare, Square, Search, MoreHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, X, CheckSquare, Square, Search, MoreHorizontal, Plus } from "lucide-react";
 import api, { bulkDeleteContents, searchContents } from "@/lib/api";
 import CreateContentModal from "@/components/CreateContentModal";
 import EditContentModal from "@/components/EditContentModal";
@@ -247,10 +247,18 @@ const Contents: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Contents</h1>
-        <div className="flex items-center gap-2">
-           <CreateContentModal onContentCreated={handleRefresh} />
+        <div className="w-full md:w-auto">
+           <CreateContentModal 
+             onContentCreated={handleRefresh} 
+             trigger={
+               <button className="w-full md:w-auto flex items-center justify-center gap-2 bg-zinc-900 text-white px-4 py-2 rounded-lg hover:bg-zinc-800 transition-colors text-sm font-medium shadow-sm active:scale-95">
+                 <Plus size={16} />
+                 New Content
+               </button>
+             }
+           />
         </div>
       </div>
 
@@ -264,10 +272,10 @@ const Contents: React.FC = () => {
             placeholder="Search content semantically..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-9 py-2 bg-white border border-zinc-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent shadow-sm"
+            className="w-full pl-9 pr-9 py-2 bg-white border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent shadow-sm"
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600">
+            <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 p-1">
               <X size={14} />
             </button>
           )}
@@ -276,7 +284,7 @@ const Contents: React.FC = () => {
         {/* Filter */}
         <button 
           onClick={openFilterDialog}
-          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium border shadow-sm transition-colors ${
+          className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border shadow-sm transition-colors ${
             isFiltering 
               ? "bg-indigo-50 border-indigo-200 text-indigo-700" 
               : "bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50"
@@ -287,7 +295,7 @@ const Contents: React.FC = () => {
         </button>
         
         {isFiltering && (
-          <button onClick={clearFilter} className="p-2 text-zinc-500 hover:text-zinc-700 border border-transparent hover:bg-zinc-100 rounded-md">
+          <button onClick={clearFilter} className="hidden sm:block p-2 text-zinc-500 hover:text-zinc-700 border border-transparent hover:bg-zinc-100 rounded-lg">
             <X size={16} />
           </button>
         )}
@@ -295,18 +303,18 @@ const Contents: React.FC = () => {
 
       {/* Bulk Action Bar */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center justify-between bg-zinc-900 text-white px-4 py-2 rounded-md shadow-sm">
+        <div className="flex items-center justify-between bg-zinc-900 text-white px-4 py-3 rounded-lg shadow-sm animate-in fade-in slide-in-from-bottom-2">
           <span className="text-sm font-medium">{selectedIds.size} selected</span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <button 
               onClick={() => handleBulkDelete(false)}
-              className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 rounded text-white font-medium transition-colors"
+              className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 rounded-md text-white font-medium transition-colors"
             >
               Delete Selected
             </button>
             <button 
               onClick={() => setSelectedIds(new Set())}
-              className="px-3 py-1.5 text-xs text-zinc-300 hover:text-white"
+              className="px-2 py-1.5 text-xs text-zinc-300 hover:text-white"
             >
               Cancel
             </button>
@@ -314,17 +322,16 @@ const Contents: React.FC = () => {
         </div>
       )}
 
-      {/* Content Table */}
-      <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden">
-        {/* Table Header */}
-        <div className="grid grid-cols-[auto_1fr_auto] gap-4 px-6 py-3 border-b border-zinc-100 bg-zinc-50/50 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+      {/* Content List */}
+      <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden">
+        {/* Header - Hidden on small mobile if desired, but kept for "Select All" */}
+        <div className="flex items-center gap-4 px-4 sm:px-6 py-3 border-b border-zinc-100 bg-zinc-50/50 text-xs font-medium text-zinc-500 uppercase tracking-wider">
           <div className="flex items-center">
-             <button onClick={handleSelectAllInView} className="hover:text-zinc-800">
-               {allInViewSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+             <button onClick={handleSelectAllInView} className="hover:text-zinc-800 p-1 -ml-1">
+               {allInViewSelected ? <CheckSquare size={18} /> : <Square size={18} />}
              </button>
           </div>
-          <div>Title & Details</div>
-          <div className="text-right">Actions</div>
+          <div>Contents</div>
         </div>
 
         {isLoading ? (
@@ -344,41 +351,45 @@ const Contents: React.FC = () => {
             {contents.map((content: Content) => (
               <div 
                 key={content.id} 
-                className={`group grid grid-cols-[auto_1fr_auto] gap-4 px-6 py-4 items-center transition-colors ${
+                className={`group flex items-start gap-3 sm:gap-4 px-4 sm:px-6 py-4 transition-colors ${
                   selectedIds.has(content.id) ? "bg-indigo-50/30" : "hover:bg-zinc-50"
                 }`}
               >
-                <div className="flex items-center">
+                {/* Checkbox */}
+                <div className="pt-0.5 shrink-0">
                   <button 
                     onClick={() => handleToggleSelection(content.id)}
-                    className={`text-zinc-400 hover:text-zinc-600 ${selectedIds.has(content.id) ? "text-indigo-600" : ""}`}
+                    className={`p-1 -ml-1 text-zinc-400 hover:text-zinc-600 ${selectedIds.has(content.id) ? "text-indigo-600" : ""}`}
                   >
-                    {selectedIds.has(content.id) ? <CheckSquare size={16} /> : <Square size={16} />}
+                    {selectedIds.has(content.id) ? <CheckSquare size={18} /> : <Square size={18} />}
                   </button>
                 </div>
                 
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                {/* Content Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2 mb-1">
                     <Link 
                       to={`/content/${content.id}`}
-                      className="text-sm font-medium text-zinc-900 hover:text-indigo-600 cursor-pointer truncate"
+                      className="text-sm font-semibold text-zinc-900 hover:text-indigo-600 cursor-pointer line-clamp-2 leading-snug"
                     >
                       {content.title || "Untitled"}
                     </Link>
-                    <span className="px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 text-[10px] font-medium border border-zinc-200">
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-zinc-500 mt-1.5">
+                    <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-600 text-[10px] font-medium border border-zinc-200">
                       {content.contentType}
                     </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-zinc-500">
-                    <span>Last updated {new Date(content.updatedAt || content.createdAt).toLocaleDateString()}</span>
+                    <span>{new Date(content.updatedAt || content.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end">
+                {/* Actions */}
+                <div className="shrink-0 ml-1">
                    <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-md transition-colors opacity-0 group-hover:opacity-100">
-                          <MoreHorizontal size={16} />
+                        <button className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-md transition-colors">
+                          <MoreHorizontal size={18} />
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-40">
@@ -406,22 +417,22 @@ const Contents: React.FC = () => {
         
         {/* Pagination */}
         {(contents.length > 0 || offset > 0) && (
-          <div className="px-6 py-3 border-t border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-3 border-t border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
             <span className="text-xs text-zinc-500">
-              Showing {offset + 1}-{Math.min(offset + LIMIT, metadata?.chunkTotalItems || 0)} of {metadata?.chunkTotalItems || 0}
+              {offset + 1}-{Math.min(offset + LIMIT, metadata?.chunkTotalItems || 0)} of {metadata?.chunkTotalItems || 0}
             </span>
             <div className="flex items-center gap-2">
               <button
                 onClick={handlePrev}
                 disabled={!canGoPrev || isLoading}
-                className="p-1.5 rounded bg-white border border-zinc-200 text-zinc-500 hover:text-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                className="p-2 rounded-lg bg-white border border-zinc-200 text-zinc-500 hover:text-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95 transition-transform"
               >
                 <ChevronLeft size={16} />
               </button>
               <button
                 onClick={handleNext}
                 disabled={!canGoNext || isLoading}
-                className="p-1.5 rounded bg-white border border-zinc-200 text-zinc-500 hover:text-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                className="p-2 rounded-lg bg-white border border-zinc-200 text-zinc-500 hover:text-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95 transition-transform"
               >
                 <ChevronRight size={16} />
               </button>
@@ -436,7 +447,7 @@ const Contents: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Filter by Tags</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 max-h-[60vh] overflow-y-auto">
             <TagSelector 
               selectedTagIds={pendingTagIds} 
               onToggleTag={togglePendingTag} 
@@ -451,7 +462,7 @@ const Contents: React.FC = () => {
             </button>
             <button 
               onClick={applyFilter} 
-              className="px-4 py-2 text-sm font-medium text-white bg-zinc-900 rounded-md hover:bg-zinc-800"
+              className="px-4 py-2 text-sm font-medium text-white bg-zinc-900 rounded-lg hover:bg-zinc-800"
             >
               Apply Filters
             </button>

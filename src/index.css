@@ -50,6 +50,10 @@
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 }
 
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
