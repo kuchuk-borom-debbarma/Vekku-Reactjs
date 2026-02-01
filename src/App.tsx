@@ -9,6 +9,7 @@ import Verify from "./pages/Verify";
 import Home from "./pages/Home";
 import Contents from "./pages/Contents";
 import Tags from "./pages/Tags";
+import ContentDetail from "./pages/ContentDetail";
 import "./App.css";
 
 // Create a client
@@ -51,6 +52,7 @@ function App() {
               <Route element={<DashboardLayout />}>
                 <Route path="/" element={<Home />} />
                 <Route path="/contents" element={<Contents />} />
+                <Route path="/content/:id" element={<ContentDetail />} />
                 <Route path="/tags" element={<Tags />} />
               </Route>
             </Route>

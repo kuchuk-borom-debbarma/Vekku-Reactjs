@@ -1,11 +1,12 @@
 import React from "react";
 import { useAuth } from "@/context/AuthContext";
-import { Link, Outlet, NavLink } from "react-router-dom";
-import { LayoutDashboard, FileText, Tag, LogOut, User, Menu } from "lucide-react";
+import { Link, Outlet, NavLink, useLocation } from "react-router-dom";
+import { LayoutDashboard, FileText, Tag, LogOut, User, Menu, ChevronRight } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const DashboardLayout: React.FC = () => {
   const { user, logout } = useAuth();
+  const location = useLocation();
 
   const navItems = [
     { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -13,92 +14,98 @@ const DashboardLayout: React.FC = () => {
     { path: "/tags", label: "Tags", icon: Tag },
   ];
 
+  const getPageTitle = () => {
+    const item = navItems.find((i) => i.path === location.pathname);
+    return item ? item.label : "Dashboard";
+  };
+
   const SidebarContent = () => (
-    <>
-      <div className="h-16 flex items-center px-6 border-b border-zinc-100">
-        <Link to="/" className="text-xl font-bold text-zinc-900 tracking-tight flex items-center gap-2">
-          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white">
-            <span className="font-bold text-sm">V</span>
+    <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
+      <div className="h-14 flex items-center px-4 border-b border-sidebar-border">
+        <Link to="/" className="flex items-center gap-2 font-semibold">
+          <div className="flex items-center justify-center w-8 h-8 rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+            <span className="font-bold">V</span>
           </div>
-          Vekku
+          <span className="tracking-tight">Vekku</span>
         </Link>
       </div>
 
-      <nav className="flex-1 px-4 py-6 space-y-1">
+      <nav className="flex-1 p-2 space-y-1">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              `flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 isActive
-                  ? "bg-zinc-100 text-zinc-900"
-                  : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-zinc-500 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
               }`
             }
           >
-            <item.icon size={18} />
+            <item.icon size={16} />
             {item.label}
           </NavLink>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-zinc-100">
-        <div className="flex items-center gap-3 px-3 py-2 mb-2">
-          <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500">
-            <User size={16} />
+      <div className="p-4 border-t border-sidebar-border">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center text-sidebar-foreground">
+            <User size={14} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-zinc-900 truncate">{user?.name}</p>
+            <p className="text-sm font-medium truncate">{user?.name || "User"}</p>
           </div>
         </div>
         <button
           onClick={logout}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-500 hover:text-zinc-900 hover:bg-sidebar-accent rounded-md transition-colors"
         >
           <LogOut size={16} />
-          Sign out
+          <span>Log out</span>
         </button>
       </div>
-    </>
+    </div>
   );
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-background text-foreground">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-64 glass border-r border-white/20 flex-col fixed inset-y-0 z-20">
+      <aside className="hidden md:block w-64 fixed inset-y-0 z-50">
         <SidebarContent />
       </aside>
 
-      {/* Mobile Top Bar */}
-      <header className="lg:hidden h-16 glass border-b border-white/20 fixed top-0 inset-x-0 z-30 flex items-center px-4 gap-4 shadow-sm">
-        <Sheet>
-          <SheetTrigger asChild>
-            <button className="p-2 text-zinc-700 hover:bg-white/20 rounded-lg transition-colors">
-              <Menu size={24} />
-            </button>
-          </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64 glass border-r border-white/20">
-            <div className="flex flex-col h-full">
-               <SidebarContent />
-            </div>
-          </SheetContent>
-        </Sheet>
-
-        <Link to="/" className="text-xl font-bold text-zinc-900 tracking-tight flex items-center gap-2">
-          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white shadow-lg">
-            <span className="font-bold text-sm">V</span>
+      {/* Mobile Top Bar & Main Content */}
+      <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
+        <header className="sticky top-0 z-40 h-14 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border flex items-center px-4 md:px-6">
+          <div className="md:hidden mr-4">
+            <Sheet>
+              <SheetTrigger asChild>
+                <button className="p-2 -ml-2 text-zinc-500 hover:text-zinc-900 rounded-md">
+                  <Menu size={20} />
+                  <span className="sr-only">Open menu</span>
+                </button>
+              </SheetTrigger>
+              <SheetContent side="left" className="p-0 w-64 border-r border-sidebar-border bg-sidebar">
+                <SidebarContent />
+              </SheetContent>
+            </Sheet>
           </div>
-          Vekku
-        </Link>
-      </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 lg:ml-64 p-4 md:p-8 pt-20 lg:pt-8 min-h-screen">
-        <div className="max-w-6xl mx-auto">
-          <Outlet />
-        </div>
-      </main>
+          <div className="flex items-center gap-2 text-sm text-zinc-500">
+             <span className="hidden md:inline font-medium text-foreground">Vekku</span>
+             <ChevronRight size={14} className="hidden md:inline text-zinc-400" />
+             <span className="font-semibold text-foreground">{getPageTitle()}</span>
+          </div>
+        </header>
+
+        <main className="flex-1 p-4 md:p-8 pt-6">
+          <div className="mx-auto max-w-6xl space-y-6">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   );
 };

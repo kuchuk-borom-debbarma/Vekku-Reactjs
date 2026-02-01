@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, ChevronLeft, ChevronRight, Trash2, Filter, X, CheckSquare, Square, Trash, Search, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, X, CheckSquare, Square, Search, MoreHorizontal } from "lucide-react";
 import api, { bulkDeleteContents, searchContents } from "@/lib/api";
 import CreateContentModal from "@/components/CreateContentModal";
 import EditContentModal from "@/components/EditContentModal";
-import ContentView from "@/components/ContentView";
 import TagSelector from "@/components/TagSelector";
 import {
   Dialog,
@@ -13,6 +13,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Content {
   id: string;
@@ -32,7 +38,7 @@ interface PaginationMetadata {
   offset: number;
 }
 
-const LIMIT = 20; // Increased limit for better bulk operations
+const LIMIT = 20;
 
 const Contents: React.FC = () => {
   const queryClient = useQueryClient();
@@ -56,7 +62,6 @@ const Contents: React.FC = () => {
 
   const isFiltering = activeFilterTagIds.length > 0;
 
-  // Debounce search query
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(searchQuery);
@@ -69,13 +74,11 @@ const Contents: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const { data: response, isLoading, error, refetch } = useQuery({
+  const { data: response, isLoading, error } = useQuery({
     queryKey: ["contents", { offset, chunkId, activeFilterTagIds, debouncedQuery }],
     queryFn: async () => {
-      // 1. Semantic Search
       if (debouncedQuery) {
         const res = await searchContents(debouncedQuery, LIMIT);
-        // Wrap array result to match pagination structure
         return {
            data: res.data, 
            metadata: { 
@@ -94,15 +97,11 @@ const Contents: React.FC = () => {
       });
       if (chunkId) params.append("chunkId", chunkId);
 
-      // 2. Filter by Tags
       if (isFiltering) {
         params.append("tagIds", activeFilterTagIds.join(","));
         const res = await api.get(`/content/by-tags?${params.toString()}`);
         return res.data;
-      } 
-      
-      // 3. Standard List
-      else {
+      } else {
         const res = await api.get(`/content?${params.toString()}`);
         return res.data;
       }
@@ -186,7 +185,7 @@ const Contents: React.FC = () => {
       setChunkId(metadata.nextChunkId);
       setOffset(0);
     }
-    setSelectedIds(new Set()); // Clear selection on page change
+    setSelectedIds(new Set());
   };
 
   const handlePrev = () => {
@@ -207,7 +206,7 @@ const Contents: React.FC = () => {
       setChunkId(prevChunk === "" ? undefined : prevChunk);
       setOffset(0);
     }
-    setSelectedIds(new Set()); // Clear selection on page change
+    setSelectedIds(new Set());
   };
 
   const canGoNext = metadata ? (
@@ -247,260 +246,214 @@ const Contents: React.FC = () => {
   const allInViewSelected = contents.length > 0 && contents.every((c: Content) => selectedIds.has(c.id));
 
   return (
-    <div className="space-y-6 px-1 sm:px-0">
+    <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-zinc-900">Contents</h1>
-        <CreateContentModal onContentCreated={handleRefresh} />
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Contents</h1>
+        <div className="flex items-center gap-2">
+           <CreateContentModal onContentCreated={handleRefresh} />
+        </div>
       </div>
 
-      {/* Bulk Action Bar (Overlay or Replacement) */}
-      {selectedIds.size > 0 ? (
-        <div className="flex items-center gap-3 bg-zinc-900 p-3 rounded-2xl shadow-lg border border-zinc-800 text-white animate-in slide-in-from-top-2 fade-in">
-          <div className="flex items-center gap-2 px-3 border-r border-zinc-700">
-            <span className="font-bold text-sm">{selectedIds.size} Selected</span>
-          </div>
-          <button 
-            onClick={() => handleBulkDelete(false)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-zinc-800 transition-colors text-xs font-bold text-red-400 hover:text-red-300"
-          >
-            <Trash size={14} />
-            Delete Selected
-          </button>
-          <div className="flex-1" />
-          <button 
-            onClick={() => setSelectedIds(new Set())}
-            className="px-3 py-1.5 text-xs text-zinc-400 hover:text-white"
-          >
-            Cancel
-          </button>
+      {/* Toolbar */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        {/* Search */}
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
+          <input 
+            type="text" 
+            placeholder="Search content semantically..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-9 py-2 bg-white border border-zinc-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent shadow-sm"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600">
+              <X size={14} />
+            </button>
+          )}
         </div>
-      ) : (
-        /* Filter & Search Bar */
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 glass p-3 rounded-2xl shadow-lg border border-white/30">
-          
-          {/* Search Input */}
-          <div className="flex-1 flex items-center gap-3 px-3 bg-white/50 rounded-xl border border-white/40 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
-            {searchQuery ? (
-               <Sparkles size={18} className="text-indigo-500 animate-pulse" />
-            ) : (
-               <Search size={18} className="text-zinc-400" />
-            )}
-            <input 
-              type="text" 
-              placeholder="Search content semantically..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent border-none outline-none py-2.5 text-sm font-medium text-zinc-900 placeholder-zinc-400"
-            />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery("")} className="text-zinc-400 hover:text-zinc-600">
-                <X size={16} />
-              </button>
-            )}
-          </div>
 
-          <div className="w-px h-8 bg-zinc-200 hidden sm:block mx-1"></div>
-
-          <button 
-            onClick={openFilterDialog}
-            className={`flex items-center justify-center sm:justify-start gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              isFiltering ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200" : "bg-white/40 text-zinc-700 hover:bg-white/60"
-            }`}
-          >
-            <Filter size={16} />
-            {isFiltering ? `Filtered (${activeFilterTagIds.length})` : "Tags"}
+        {/* Filter */}
+        <button 
+          onClick={openFilterDialog}
+          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium border shadow-sm transition-colors ${
+            isFiltering 
+              ? "bg-indigo-50 border-indigo-200 text-indigo-700" 
+              : "bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+          }`}
+        >
+          <Filter size={16} />
+          {isFiltering ? `Filtered (${activeFilterTagIds.length})` : "Filter"}
+        </button>
+        
+        {isFiltering && (
+          <button onClick={clearFilter} className="p-2 text-zinc-500 hover:text-zinc-700 border border-transparent hover:bg-zinc-100 rounded-md">
+            <X size={16} />
           </button>
+        )}
+      </div>
 
-          {/* Delete ALL Button (Danger Zone) */}
-          <button 
-            onClick={() => handleBulkDelete(true)}
-            className="flex items-center justify-center sm:justify-start gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all bg-white/40 text-zinc-400 hover:bg-red-50 hover:text-red-600 sm:ml-auto"
-            title="Delete ALL Contents"
-          >
-            <Trash2 size={16} />
-          </button>
-
-          <div className="flex items-center justify-between sm:justify-start gap-4">
-            {isFiltering && (
-              <button 
-                onClick={clearFilter}
-                className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50/50 rounded-xl transition-colors"
-              >
-                <X size={14} />
-              </button>
-            )}
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between bg-zinc-900 text-white px-4 py-2 rounded-md shadow-sm">
+          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => handleBulkDelete(false)}
+              className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 rounded text-white font-medium transition-colors"
+            >
+              Delete Selected
+            </button>
+            <button 
+              onClick={() => setSelectedIds(new Set())}
+              className="px-3 py-1.5 text-xs text-zinc-300 hover:text-white"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
 
-      {/* Content List Container */}
-      <div className="glass rounded-[2rem] border border-white/30 shadow-2xl min-h-[400px] overflow-hidden flex flex-col mb-12">
+      {/* Content Table */}
+      <div className="bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden">
+        {/* Table Header */}
+        <div className="grid grid-cols-[auto_1fr_auto] gap-4 px-6 py-3 border-b border-zinc-100 bg-zinc-50/50 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+          <div className="flex items-center">
+             <button onClick={handleSelectAllInView} className="hover:text-zinc-800">
+               {allInViewSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+             </button>
+          </div>
+          <div>Title & Details</div>
+          <div className="text-right">Actions</div>
+        </div>
+
         {isLoading ? (
-          <div className="flex-1 flex items-center justify-center p-12 text-zinc-600 font-medium">
-            {debouncedQuery ? "Searching semantics..." : "Fetching content..."}
-          </div>
+          <div className="p-12 text-center text-zinc-500 text-sm">Loading contents...</div>
         ) : error ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-            <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-3">
-              <span className="text-red-600 font-bold">!</span>
-            </div>
-            <p className="font-medium text-zinc-900 px-4">
-              {(error as any).response?.status === 429 
-                ? "Rate limit exceeded. Please wait a moment." 
-                : "Failed to load contents. Please try again later."}
-            </p>
-            <button 
-              onClick={() => refetch()}
-              className="mt-4 text-indigo-600 hover:text-indigo-700 text-sm font-medium"
-            >
-              Try again
-            </button>
-          </div>
+           <div className="p-12 text-center text-red-500 text-sm">Failed to load content.</div>
         ) : contents.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 p-8 text-center">
-            <div className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center mb-3 mx-auto">
-              {debouncedQuery ? <Search className="text-zinc-300" /> : <FileText className="text-zinc-300" />}
-            </div>
-            <p className="font-medium text-zinc-900">
-              {debouncedQuery 
-                ? "No contents match your semantic search." 
-                : isFiltering 
-                  ? "No contents match these tags." 
-                  : "No contents found."}
-            </p>
-            <div className="mt-4">
-              {debouncedQuery || isFiltering ? (
-                <button onClick={() => { setSearchQuery(""); clearFilter(); }} className="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
-                  Clear filters to see all
-                </button>
-              ) : (
-                <CreateContentModal 
-                  onContentCreated={handleRefresh}
-                  trigger={
-                    <button className="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
-                      Create your first content
-                    </button>
-                  }
-                />
-              )}
-            </div>
+          <div className="p-16 text-center">
+             <div className="w-10 h-10 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-3 text-zinc-400">
+                <Search size={18} />
+             </div>
+             <p className="text-zinc-900 font-medium text-sm">No contents found</p>
+             <p className="text-zinc-500 text-xs mt-1">Try adjusting your filters or search query.</p>
           </div>
         ) : (
-          <div className="flex-1 divide-y divide-zinc-50">
-            {/* Header for Select All */}
-            <div className="px-4 sm:px-6 py-2 bg-zinc-50/50 flex items-center gap-4 text-xs font-medium text-zinc-500">
-               <button onClick={handleSelectAllInView} className="hover:text-zinc-800 transition-colors">
-                 {allInViewSelected ? <CheckSquare size={16} /> : <Square size={16} />}
-               </button>
-               <span>Select All {debouncedQuery && "(Search Results)"}</span>
-            </div>
-
+          <div className="divide-y divide-zinc-100">
             {contents.map((content: Content) => (
-              <div key={content.id} className={`px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between transition-colors group gap-4 ${selectedIds.has(content.id) ? "bg-indigo-50/50 hover:bg-indigo-50" : "hover:bg-zinc-50"}`}>
-                <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
+              <div 
+                key={content.id} 
+                className={`group grid grid-cols-[auto_1fr_auto] gap-4 px-6 py-4 items-center transition-colors ${
+                  selectedIds.has(content.id) ? "bg-indigo-50/30" : "hover:bg-zinc-50"
+                }`}
+              >
+                <div className="flex items-center">
                   <button 
-                    onClick={(e) => { e.stopPropagation(); handleToggleSelection(content.id); }}
-                    className={`shrink-0 text-zinc-400 hover:text-zinc-600 transition-colors ${selectedIds.has(content.id) ? "text-indigo-600" : ""}`}
+                    onClick={() => handleToggleSelection(content.id)}
+                    className={`text-zinc-400 hover:text-zinc-600 ${selectedIds.has(content.id) ? "text-indigo-600" : ""}`}
                   >
-                    {selectedIds.has(content.id) ? <CheckSquare size={18} /> : <Square size={18} />}
+                    {selectedIds.has(content.id) ? <CheckSquare size={16} /> : <Square size={16} />}
                   </button>
-
-                  <div className="w-8 h-8 rounded bg-indigo-50 flex-shrink-0 flex items-center justify-center text-indigo-600 mt-0.5 sm:mt-0">
-                    <FileText size={14} />
+                </div>
+                
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Link 
+                      to={`/content/${content.id}`}
+                      className="text-sm font-medium text-zinc-900 hover:text-indigo-600 cursor-pointer truncate"
+                    >
+                      {content.title || "Untitled"}
+                    </Link>
+                    <span className="px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 text-[10px] font-medium border border-zinc-200">
+                      {content.contentType}
+                    </span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <ContentView 
-                      content={content}
-                      trigger={
-                        <p className="text-sm font-medium text-zinc-900 group-hover:text-indigo-600 transition-colors cursor-pointer hover:underline truncate">
-                          {content.title || "Untitled Content"}
-                        </p>
-                      }
-                    />
-                    <p className="text-xs text-zinc-500">
-                      Edited {new Date(content.updatedAt || content.createdAt).toLocaleDateString()}
-                    </p>
+                  <div className="flex items-center gap-2 text-xs text-zinc-500">
+                    <span>Last updated {new Date(content.updatedAt || content.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
-                <div className="flex items-center justify-between sm:justify-end gap-4 sm:pl-0 pl-11">
-                  <span className="px-2 py-1 bg-zinc-100 text-zinc-600 rounded text-[10px] font-medium uppercase tracking-wider">
-                    {content.contentType}
-                  </span>
-                  <div className="flex items-center gap-3 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                     <EditContentModal content={content} onContentUpdated={handleRefresh} />
-                     <button 
-                        onClick={() => handleDelete(content.id)}
-                        className="text-zinc-400 hover:text-red-600 transition-colors p-1"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                   </div>
+
+                <div className="flex items-center justify-end">
+                   <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-md transition-colors opacity-0 group-hover:opacity-100">
+                          <MoreHorizontal size={16} />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                         <div onClick={(e) => e.stopPropagation()}>
+                            <EditContentModal 
+                               content={content} 
+                               onContentUpdated={handleRefresh} 
+                               trigger={
+                                  <div className="w-full flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-zinc-100 rounded-sm cursor-pointer">
+                                     <span>Edit</span>
+                                  </div>
+                               }
+                            />
+                         </div>
+                         <DropdownMenuItem onClick={() => handleDelete(content.id)} className="text-red-600 focus:text-red-600 focus:bg-red-50">
+                            Delete
+                         </DropdownMenuItem>
+                      </DropdownMenuContent>
+                   </DropdownMenu>
                 </div>
               </div>
             ))}
           </div>
         )}
-
-        {/* Pagination Footer */}
-        {contents.length > 0 && !debouncedQuery && (
-           <div className="border-t border-zinc-100 px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-center justify-between bg-zinc-50/50 gap-3">
-             <span className="text-[10px] sm:text-xs text-zinc-500">
-                Showing {offset + 1}-{Math.min(offset + LIMIT, metadata?.chunkTotalItems || 0)} of {metadata?.chunkTotalItems || 0} {isFiltering ? "matches" : "in segment"}
-             </span>
-             <div className="flex items-center gap-2">
-               <button
-                 onClick={handlePrev}
-                 disabled={!canGoPrev || isLoading}
-                 className="p-1.5 rounded-md bg-white shadow-sm border border-zinc-200 disabled:opacity-30 disabled:pointer-events-none transition-all text-zinc-600"
-               >
-                 <ChevronLeft size={16} />
-               </button>
-               <button
-                 onClick={handleNext}
-                 disabled={!canGoNext || isLoading}
-                 className="p-1.5 rounded-md bg-white shadow-sm border border-zinc-200 disabled:opacity-30 disabled:pointer-events-none transition-all text-zinc-600"
-               >
-                 <ChevronRight size={16} />
-               </button>
-             </div>
-           </div>
-         )}
-         {debouncedQuery && contents.length > 0 && (
-            <div className="border-t border-zinc-100 px-4 py-3 bg-indigo-50/30 text-center text-xs text-indigo-800 font-medium">
-              Showing top {contents.length} semantic matches
+        
+        {/* Pagination */}
+        {(contents.length > 0 || offset > 0) && (
+          <div className="px-6 py-3 border-t border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
+            <span className="text-xs text-zinc-500">
+              Showing {offset + 1}-{Math.min(offset + LIMIT, metadata?.chunkTotalItems || 0)} of {metadata?.chunkTotalItems || 0}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handlePrev}
+                disabled={!canGoPrev || isLoading}
+                className="p-1.5 rounded bg-white border border-zinc-200 text-zinc-500 hover:text-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                onClick={handleNext}
+                disabled={!canGoNext || isLoading}
+                className="p-1.5 rounded bg-white border border-zinc-200 text-zinc-500 hover:text-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              >
+                <ChevronRight size={16} />
+              </button>
             </div>
-         )}
+          </div>
+        )}
       </div>
 
       {/* Filter Dialog */}
       <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Filter Contents by Tags</DialogTitle>
+            <DialogTitle>Filter by Tags</DialogTitle>
           </DialogHeader>
-          
-          <div className="flex-1 overflow-y-auto py-2">
-            <p className="text-xs text-zinc-500 mb-4 px-1">
-              Select tags to find contents that contain <strong>all</strong> selected tags.
-            </p>
+          <div className="py-4">
             <TagSelector 
               selectedTagIds={pendingTagIds} 
               onToggleTag={togglePendingTag} 
             />
           </div>
-
-          <DialogFooter className="pt-4 border-t border-zinc-100">
+          <DialogFooter>
             <button 
               onClick={() => setIsFilterDialogOpen(false)} 
-              className="px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors"
+              className="px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900"
             >
               Cancel
             </button>
             <button 
               onClick={applyFilter} 
-              className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-zinc-800 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white bg-zinc-900 rounded-md hover:bg-zinc-800"
             >
-              Find Contents
+              Apply Filters
             </button>
           </DialogFooter>
         </DialogContent>
