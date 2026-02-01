@@ -44,11 +44,6 @@ const Home: React.FC = () => {
     fetchData();
   }, []);
 
-  const stats = [
-    { label: "Total Contents", value: isLoading ? "-" : contentCount, icon: FileText, color: "text-blue-600", bg: "bg-blue-50" },
-    { label: "Total Tags", value: isLoading ? "-" : tagCount, icon: Tag, color: "text-purple-600", bg: "bg-purple-50" },
-  ];
-
   return (
     <div className="space-y-8">
       {/* Welcome & Actions */}
@@ -85,21 +80,45 @@ const Home: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {stats.map((stat) => (
-          <div key={stat.label} className="bg-white p-6 rounded-xl border border-zinc-100 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-zinc-500">{stat.label}</p>
-                <p className="text-3xl font-bold text-zinc-900 mt-2">{stat.value}</p>
-              </div>
-              <div className={`p-3 rounded-lg ${stat.bg} ${stat.color}`}>
-                <stat.icon size={20} />
-              </div>
+      {/* Stats Grid - Acting as Navigation */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Link 
+          to="/contents" 
+          className="bg-white p-6 rounded-xl border border-zinc-100 shadow-sm hover:shadow-md hover:border-indigo-100 hover:ring-2 hover:ring-indigo-50 transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-zinc-500 group-hover:text-indigo-600 transition-colors">Total Contents</p>
+              <p className="text-4xl font-bold text-zinc-900 mt-2">{isLoading ? "-" : contentCount}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-100 transition-colors">
+              <FileText size={24} />
             </div>
           </div>
-        ))}
+          <div className="mt-4 flex items-center gap-1 text-xs font-medium text-zinc-400 group-hover:text-indigo-600">
+            <span>Manage Contents</span>
+            <ArrowRight size={12} className="opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+          </div>
+        </Link>
+
+        <Link 
+          to="/tags" 
+          className="bg-white p-6 rounded-xl border border-zinc-100 shadow-sm hover:shadow-md hover:border-purple-100 hover:ring-2 hover:ring-purple-50 transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-zinc-500 group-hover:text-purple-600 transition-colors">Total Tags</p>
+              <p className="text-4xl font-bold text-zinc-900 mt-2">{isLoading ? "-" : tagCount}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-purple-50 text-purple-600 group-hover:bg-purple-100 transition-colors">
+              <Tag size={24} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-1 text-xs font-medium text-zinc-400 group-hover:text-purple-600">
+            <span>Manage Tags</span>
+            <ArrowRight size={12} className="opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+          </div>
+        </Link>
       </div>
 
       {/* Recent Activity */}
